@@ -6,11 +6,13 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { toast } from '@/components/ui/use-toast';
 import { Eye, EyeOff, BookOpen, UserPlus, CheckCircle } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import type { UserRole } from '@/contexts/AuthContext';
 
 const perks = ['Access 500+ premium courses', 'Learn from industry experts', 'Get certified on completion', 'Track your progress'];
 
 export default function Register() {
-  const [form, setForm] = useState({ name: '', email: '', password: '', confirm: '' });
+  const [form, setForm] = useState({ name: '', email: '', password: '', confirm: '', role: 'student' as UserRole });
   const [showPass, setShowPass] = useState(false);
   const [loading, setLoading] = useState(false);
   const { register } = useAuth();
@@ -23,9 +25,9 @@ export default function Register() {
     if (form.password.length < 6) { toast({ title: 'Password must be at least 6 characters', variant: 'destructive' }); return; }
     setLoading(true);
     try {
-      await register(form.name, form.email, form.password);
+      await register(form.name, form.email, form.password, form.role);
       toast({ title: 'Account created!', description: 'Welcome to LMS Academy.' });
-      navigate('/student');
+      navigate(`/${form.role}`);
     } catch (err: any) {
       toast({ title: 'Registration failed', description: err.message, variant: 'destructive' });
     } finally { setLoading(false); }
@@ -77,6 +79,18 @@ export default function Register() {
               <Label htmlFor="email" className="text-sm font-medium">Email address</Label>
               <Input id="email" type="email" placeholder="you@example.com" value={form.email}
                 onChange={e => setForm({ ...form, email: e.target.value })} className="mt-1.5 h-11" />
+            </div>
+            <div>
+              <Label htmlFor="role" className="text-sm font-medium">I am a</Label>
+              <Select value={form.role} onValueChange={(val) => setForm({ ...form, role: val as UserRole })}>
+                <SelectTrigger className="mt-1.5 h-11">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="student">Student</SelectItem>
+                  <SelectItem value="teacher">Teacher</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
             <div>
               <Label htmlFor="password" className="text-sm font-medium">Password</Label>
