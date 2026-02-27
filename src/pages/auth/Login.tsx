@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
@@ -7,19 +7,22 @@ import { Label } from '@/components/ui/label';
 import { toast } from '@/components/ui/use-toast';
 import { Eye, EyeOff, BookOpen, LogIn } from 'lucide-react';
 
-const demoAccounts = [
-  { role: 'Admin', email: 'admin@lmsacademy.com', password: 'admin123', color: 'text-destructive' },
-  { role: 'Teacher', email: 'teacher@lmsacademy.com', password: 'teacher123', color: 'text-warning' },
-  { role: 'Student', email: 'student@lmsacademy.com', password: 'student123', color: 'text-success' },
-];
-
 export default function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPass, setShowPass] = useState(false);
   const [loading, setLoading] = useState(false);
-  const { login } = useAuth();
+  const { login, user, isAuthenticated } = useAuth();
   const navigate = useNavigate();
+
+  // Redirect when authenticated
+  useEffect(() => {
+    if (isAuthenticated && user) {
+      if (user.role === 'admin') navigate('/admin', { replace: true });
+      else if (user.role === 'teacher') navigate('/teacher', { replace: true });
+      else navigate('/student', { replace: true });
+    }
+  }, [isAuthenticated, user, navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -27,27 +30,10 @@ export default function Login() {
     setLoading(true);
     try {
       await login(email, password);
-      const stored = localStorage.getItem('lms_user');
-      const user = stored ? JSON.parse(stored) : null;
-      if (user?.role === 'admin') navigate('/admin');
-      else if (user?.role === 'teacher') navigate('/teacher');
-      else navigate('/student');
+      toast({ title: 'Welcome back!' });
     } catch (err: any) {
       toast({ title: 'Login failed', description: err.message, variant: 'destructive' });
     } finally { setLoading(false); }
-  };
-
-  const quickLogin = async (email: string, password: string) => {
-    setEmail(email); setPassword(password);
-    setLoading(true);
-    try {
-      await login(email, password);
-      const stored = localStorage.getItem('lms_user');
-      const user = stored ? JSON.parse(stored) : null;
-      if (user?.role === 'admin') navigate('/admin');
-      else if (user?.role === 'teacher') navigate('/teacher');
-      else navigate('/student');
-    } catch { } finally { setLoading(false); }
   };
 
   return (
@@ -99,19 +85,6 @@ export default function Login() {
             <p className="text-muted-foreground mt-2">Sign in to your account to continue</p>
           </div>
 
-          {/* Demo Accounts */}
-          <div className="mb-6 p-4 bg-accent rounded-xl border border-border">
-            <p className="text-xs font-semibold text-muted-foreground mb-3 uppercase tracking-wide">Quick Demo Login</p>
-            <div className="flex gap-2 flex-wrap">
-              {demoAccounts.map(({ role, email, password, color }) => (
-                <button key={role} onClick={() => quickLogin(email, password)}
-                  className={`text-xs px-3 py-1.5 rounded-lg border border-border bg-card hover:shadow-sm transition-all font-medium ${color}`}>
-                  {role}
-                </button>
-              ))}
-            </div>
-          </div>
-
           <form onSubmit={handleSubmit} className="space-y-5">
             <div>
               <Label htmlFor="email" className="text-sm font-medium">Email address</Label>
@@ -121,7 +94,6 @@ export default function Login() {
             <div>
               <div className="flex items-center justify-between mb-1.5">
                 <Label htmlFor="password" className="text-sm font-medium">Password</Label>
-                <Link to="/forgot-password" className="text-xs text-primary hover:underline">Forgot password?</Link>
               </div>
               <div className="relative">
                 <Input id="password" type={showPass ? 'text' : 'password'} placeholder="••••••••"
