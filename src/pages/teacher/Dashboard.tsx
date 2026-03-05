@@ -3,6 +3,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { mockCourses, mockEnrollments, monthlyEnrollmentData, revenueData } from '@/data/mockData';
 import { BookOpen, Users, FileText, TrendingUp, Plus, Eye, Edit3, Trash2, Star } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { useNavigate } from 'react-router-dom';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line } from 'recharts';
 
 function StatCard({ icon: Icon, label, value, delta, gradient }: { icon: React.ElementType; label: string; value: string | number; delta?: string; gradient: string }) {
