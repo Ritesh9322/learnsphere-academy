@@ -3,6 +3,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { mockCourses, mockEnrollments, monthlyEnrollmentData, revenueData } from '@/data/mockData';
 import { BookOpen, Users, FileText, TrendingUp, Plus, Eye, Edit3, Trash2, Star } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { useNavigate } from 'react-router-dom';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line } from 'recharts';
 
 function StatCard({ icon: Icon, label, value, delta, gradient }: { icon: React.ElementType; label: string; value: string | number; delta?: string; gradient: string }) {
@@ -24,6 +25,7 @@ const teacherCourses = mockCourses.filter(c => c.instructor === 'teacher1');
 
 export default function TeacherDashboard() {
   const { user } = useAuth();
+  const navigate = useNavigate();
 
   return (
     <DashboardLayout>
@@ -34,7 +36,7 @@ export default function TeacherDashboard() {
             <h1 className="text-2xl font-display font-bold text-foreground">Instructor Dashboard</h1>
             <p className="text-muted-foreground text-sm mt-1">Welcome back, {user?.name}. Manage your courses and students.</p>
           </div>
-          <Button style={{ background: 'var(--gradient-primary)' }} className="font-semibold">
+          <Button onClick={() => navigate('/teacher/courses/create')} style={{ background: 'var(--gradient-primary)' }} className="font-semibold">
             <Plus className="w-4 h-4 mr-2" />Create New Course
           </Button>
         </div>

@@ -10,6 +10,10 @@ import Login from "./pages/auth/Login";
 import Register from "./pages/auth/Register";
 import NotFound from "./pages/NotFound";
 
+// Shared pages
+import Notifications from "./pages/shared/Notifications";
+import ProfilePage from "./pages/shared/ProfilePage";
+
 // Student pages
 import StudentDashboard from "./pages/student/Dashboard";
 import CourseCatalog from "./pages/student/Courses";
@@ -18,15 +22,18 @@ import StudentQuizzes from "./pages/student/Quizzes";
 import StudentAttendance from "./pages/student/Attendance";
 import StudentGrades from "./pages/student/Grades";
 import Payments from "./pages/student/Payments";
-import Profile from "./pages/student/Profile";
 
 // Teacher pages
 import TeacherDashboard from "./pages/teacher/Dashboard";
 import TeacherCourses from "./pages/teacher/Courses";
+import CreateCourse from "./pages/teacher/CreateCourse";
 import TeacherAssignments from "./pages/teacher/Assignments";
+import CreateAssignment from "./pages/teacher/CreateAssignment";
 import TeacherQuizzes from "./pages/teacher/Quizzes";
+import CreateQuiz from "./pages/teacher/CreateQuiz";
 import TeacherAttendance from "./pages/teacher/Attendance";
 import TeacherStudents from "./pages/teacher/Students";
+import StudentDetail from "./pages/teacher/StudentDetail";
 import TeacherAnalytics from "./pages/teacher/Analytics";
 
 // Admin pages
@@ -63,17 +70,23 @@ function AppRoutes() {
       <Route path="/student/attendance" element={<ProtectedRoute role="student"><StudentAttendance /></ProtectedRoute>} />
       <Route path="/student/grades" element={<ProtectedRoute role="student"><StudentGrades /></ProtectedRoute>} />
       <Route path="/student/payments" element={<ProtectedRoute role="student"><Payments /></ProtectedRoute>} />
-      <Route path="/student/profile" element={<ProtectedRoute role="student"><Profile /></ProtectedRoute>} />
+      <Route path="/student/profile" element={<ProtectedRoute role="student"><ProfilePage /></ProtectedRoute>} />
+      <Route path="/student/notifications" element={<ProtectedRoute role="student"><Notifications /></ProtectedRoute>} />
 
       {/* Teacher Routes */}
       <Route path="/teacher" element={<ProtectedRoute role="teacher"><TeacherDashboard /></ProtectedRoute>} />
       <Route path="/teacher/courses" element={<ProtectedRoute role="teacher"><TeacherCourses /></ProtectedRoute>} />
+      <Route path="/teacher/courses/create" element={<ProtectedRoute role="teacher"><CreateCourse /></ProtectedRoute>} />
       <Route path="/teacher/assignments" element={<ProtectedRoute role="teacher"><TeacherAssignments /></ProtectedRoute>} />
+      <Route path="/teacher/assignments/create" element={<ProtectedRoute role="teacher"><CreateAssignment /></ProtectedRoute>} />
       <Route path="/teacher/quizzes" element={<ProtectedRoute role="teacher"><TeacherQuizzes /></ProtectedRoute>} />
+      <Route path="/teacher/quizzes/create" element={<ProtectedRoute role="teacher"><CreateQuiz /></ProtectedRoute>} />
       <Route path="/teacher/attendance" element={<ProtectedRoute role="teacher"><TeacherAttendance /></ProtectedRoute>} />
       <Route path="/teacher/students" element={<ProtectedRoute role="teacher"><TeacherStudents /></ProtectedRoute>} />
+      <Route path="/teacher/students/:studentId" element={<ProtectedRoute role="teacher"><StudentDetail /></ProtectedRoute>} />
       <Route path="/teacher/analytics" element={<ProtectedRoute role="teacher"><TeacherAnalytics /></ProtectedRoute>} />
-      <Route path="/teacher/profile" element={<ProtectedRoute role="teacher"><Profile /></ProtectedRoute>} />
+      <Route path="/teacher/profile" element={<ProtectedRoute role="teacher"><ProfilePage /></ProtectedRoute>} />
+      <Route path="/teacher/notifications" element={<ProtectedRoute role="teacher"><Notifications /></ProtectedRoute>} />
 
       {/* Admin Routes */}
       <Route path="/admin" element={<ProtectedRoute role="admin"><AdminDashboard /></ProtectedRoute>} />
@@ -83,6 +96,8 @@ function AppRoutes() {
       <Route path="/admin/payments" element={<ProtectedRoute role="admin"><AdminPayments /></ProtectedRoute>} />
       <Route path="/admin/security" element={<ProtectedRoute role="admin"><AdminSecurity /></ProtectedRoute>} />
       <Route path="/admin/settings" element={<ProtectedRoute role="admin"><AdminSettings /></ProtectedRoute>} />
+      <Route path="/admin/profile" element={<ProtectedRoute role="admin"><ProfilePage /></ProtectedRoute>} />
+      <Route path="/admin/notifications" element={<ProtectedRoute role="admin"><Notifications /></ProtectedRoute>} />
 
       <Route path="*" element={<NotFound />} />
     </Routes>
