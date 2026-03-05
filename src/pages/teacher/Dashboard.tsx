@@ -25,6 +25,7 @@ const teacherCourses = mockCourses.filter(c => c.instructor === 'teacher1');
 
 export default function TeacherDashboard() {
   const { user } = useAuth();
+  const navigate = useNavigate();
 
   return (
     <DashboardLayout>
