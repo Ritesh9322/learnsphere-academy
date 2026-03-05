@@ -20,24 +20,33 @@ export type Database = {
           created_at: string | null
           description: string | null
           due_date: string | null
+          file_url: string | null
           id: string
+          status: string | null
           title: string
+          total_marks: number | null
         }
         Insert: {
           course_id: string
           created_at?: string | null
           description?: string | null
           due_date?: string | null
+          file_url?: string | null
           id?: string
+          status?: string | null
           title: string
+          total_marks?: number | null
         }
         Update: {
           course_id?: string
           created_at?: string | null
           description?: string | null
           due_date?: string | null
+          file_url?: string | null
           id?: string
+          status?: string | null
           title?: string
+          total_marks?: number | null
         }
         Relationships: [
           {
@@ -158,12 +167,54 @@ export type Database = {
           },
         ]
       }
+      lessons: {
+        Row: {
+          course_id: string
+          created_at: string | null
+          description: string | null
+          duration: string | null
+          id: string
+          sort_order: number | null
+          title: string
+          video_url: string | null
+        }
+        Insert: {
+          course_id: string
+          created_at?: string | null
+          description?: string | null
+          duration?: string | null
+          id?: string
+          sort_order?: number | null
+          title: string
+          video_url?: string | null
+        }
+        Update: {
+          course_id?: string
+          created_at?: string | null
+          description?: string | null
+          duration?: string | null
+          id?: string
+          sort_order?: number | null
+          title?: string
+          video_url?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lessons_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
+            referencedRelation: "courses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       notifications: {
         Row: {
           created_at: string | null
           id: string
           is_read: boolean | null
           message: string
+          title: string | null
           type: string | null
           user_id: string
         }
@@ -172,6 +223,7 @@ export type Database = {
           id?: string
           is_read?: boolean | null
           message: string
+          title?: string | null
           type?: string | null
           user_id: string
         }
@@ -180,6 +232,7 @@ export type Database = {
           id?: string
           is_read?: boolean | null
           message?: string
+          title?: string | null
           type?: string | null
           user_id?: string
         }
