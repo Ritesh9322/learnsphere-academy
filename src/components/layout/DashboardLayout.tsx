@@ -129,7 +129,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const { user } = useAuth();
-  const [notifications] = useState(2);
+  const navigate = useNavigate();
+
+  const rolePrefix = user?.role === 'admin' ? '/admin' : user?.role === 'teacher' ? '/teacher' : '/student';
 
   return (
     <div className="min-h-screen flex bg-background">
@@ -164,17 +166,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           <div className="flex-1" />
 
           {/* Notification Bell */}
-          <button className="relative p-2 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground transition-colors">
+          <button onClick={() => navigate(`${rolePrefix}/notifications`)} className="relative p-2 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground transition-colors">
             <Bell className="w-5 h-5" />
-            {notifications > 0 && (
-              <span className="absolute top-1 right-1 w-4 h-4 rounded-full text-[10px] font-bold flex items-center justify-center text-white" style={{ background: 'hsl(var(--destructive))' }}>
-                {notifications}
-              </span>
-            )}
           </button>
 
-          {/* User Avatar */}
-          <div className="flex items-center gap-2.5">
+          {/* User Avatar - click to profile */}
+          <button onClick={() => navigate(`${rolePrefix}/profile`)} className="flex items-center gap-2.5 hover:opacity-80 transition-opacity">
             <div className="w-8 h-8 rounded-full overflow-hidden ring-2 ring-primary/30">
               {user?.avatar ? (
                 <img src={user.avatar} alt={user.name} className="w-full h-full object-cover" />
@@ -184,11 +181,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 </div>
               )}
             </div>
-            <div className="hidden sm:block">
+            <div className="hidden sm:block text-left">
               <div className="text-sm font-semibold text-foreground leading-tight">{user?.name}</div>
               <div className="text-xs text-muted-foreground capitalize">{user?.role}</div>
             </div>
-          </div>
+          </button>
         </header>
 
         {/* Page Content */}
