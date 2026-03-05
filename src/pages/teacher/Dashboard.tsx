@@ -36,7 +36,7 @@ export default function TeacherDashboard() {
             <h1 className="text-2xl font-display font-bold text-foreground">Instructor Dashboard</h1>
             <p className="text-muted-foreground text-sm mt-1">Welcome back, {user?.name}. Manage your courses and students.</p>
           </div>
-          <Button style={{ background: 'var(--gradient-primary)' }} className="font-semibold">
+          <Button onClick={() => navigate('/teacher/courses/create')} style={{ background: 'var(--gradient-primary)' }} className="font-semibold">
             <Plus className="w-4 h-4 mr-2" />Create New Course
           </Button>
         </div>
