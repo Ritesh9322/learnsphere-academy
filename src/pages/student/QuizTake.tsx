@@ -39,7 +39,7 @@ export default function QuizTake() {
       ]);
       if (qRes.data) {
         setQuiz(qRes.data);
-        const qs = Array.isArray(qRes.data.questions) ? qRes.data.questions as Question[] : [];
+        const qs = Array.isArray(qRes.data.questions) ? (qRes.data.questions as unknown as Question[]) : [];
         setQuestions(qs);
         setTimeLeft((qRes.data.duration || 30) * 60);
       }
@@ -47,7 +47,7 @@ export default function QuizTake() {
         setExistingAttempt(aRes.data);
         setSubmitted(true);
         // Calculate result from existing attempt
-        const qs = Array.isArray(qRes.data?.questions) ? qRes.data.questions as Question[] : [];
+        const qs = Array.isArray(qRes.data?.questions) ? (qRes.data.questions as unknown as Question[]) : [];
         const savedAnswers = (aRes.data.answers as Record<string, number>) || {};
         let correct = 0, total = 0;
         qs.forEach((q, i) => {
