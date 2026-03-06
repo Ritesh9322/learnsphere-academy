@@ -1,34 +1,71 @@
 import DashboardLayout from '@/components/layout/DashboardLayout';
-import { mockAssignments } from '@/data/mockData';
-import { FileText, Upload, Clock, CheckCircle2, AlertCircle, Search, Filter } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
+import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { FileText, Upload, Clock, CheckCircle2, Search, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { useState } from 'react';
 
 export default function StudentAssignments() {
+  const { user } = useAuth();
+  const navigate = useNavigate();
+  const [assignments, setAssignments] = useState<any[]>([]);
+  const [submissions, setSubmissions] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<'all' | 'pending' | 'submitted' | 'graded'>('all');
   const [search, setSearch] = useState('');
 
-  const filtered = mockAssignments.filter(a =>
-    (filter === 'all' || a.status === filter) &&
-    a.title.toLowerCase().includes(search.toLowerCase())
-  );
+  useEffect(() => {
+    if (!user) return;
+    const load = async () => {
+      setLoading(true);
+      // Get enrolled course IDs
+      const { data: enrollments } = await supabase.from('enrollments').select('course_id').eq('student_id', user.id);
+      const courseIds = (enrollments || []).map(e => e.course_id);
+
+      let assignmentData: any[] = [];
+      if (courseIds.length > 0) {
+        const { data } = await supabase.from('assignments').select('*, courses(title)').in('course_id', courseIds).order('created_at', { ascending: false });
+        assignmentData = data || [];
+      }
+
+      const { data: subData } = await supabase.from('submissions').select('*').eq('student_id', user.id);
+      setAssignments(assignmentData);
+      setSubmissions(subData || []);
+      setLoading(false);
+    };
+    load();
+  }, [user]);
+
+  const getSubmission = (assignmentId: string) => submissions.find(s => s.assignment_id === assignmentId);
+  const getStatus = (a: any) => {
+    const sub = getSubmission(a.id);
+    if (sub?.grade != null) return 'graded';
+    if (sub) return 'submitted';
+    return 'pending';
+  };
+
+  const filtered = assignments.filter(a => {
+    const status = getStatus(a);
+    return (filter === 'all' || status === filter) && a.title.toLowerCase().includes(search.toLowerCase());
+  });
 
   const counts = {
-    all: mockAssignments.length,
-    pending: mockAssignments.filter(a => a.status === 'pending').length,
-    submitted: mockAssignments.filter(a => a.status === 'submitted').length,
-    graded: mockAssignments.filter(a => a.status === 'graded').length,
+    all: assignments.length,
+    pending: assignments.filter(a => getStatus(a) === 'pending').length,
+    submitted: assignments.filter(a => getStatus(a) === 'submitted').length,
+    graded: assignments.filter(a => getStatus(a) === 'graded').length,
   };
+
+  if (loading) return <DashboardLayout><div className="flex items-center justify-center py-20"><Loader2 className="w-6 h-6 animate-spin text-primary" /></div></DashboardLayout>;
 
   return (
     <DashboardLayout>
       <div className="max-w-5xl mx-auto space-y-6 animate-fade-in">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div>
-            <h1 className="text-2xl font-display font-bold text-foreground">My Assignments</h1>
-            <p className="text-muted-foreground text-sm mt-1">View, submit, and track your assignments</p>
-          </div>
+        <div>
+          <h1 className="text-2xl font-display font-bold text-foreground">My Assignments</h1>
+          <p className="text-muted-foreground text-sm mt-1">View, submit, and track your assignments</p>
         </div>
 
         {/* Stats */}
@@ -70,53 +107,43 @@ export default function StudentAssignments() {
 
         {/* Assignment Cards */}
         <div className="space-y-4">
-          {filtered.map(a => (
-            <div key={a.id} className="bg-card rounded-xl border border-border p-5 hover:shadow-md transition-all">
-              <div className="flex flex-col sm:flex-row sm:items-center gap-4">
-                <div className="flex-1">
-                  <div className="flex items-center gap-2 mb-1">
-                    <h3 className="font-semibold text-foreground">{a.title}</h3>
-                    <span className={a.status === 'pending' ? 'badge-warning' : a.status === 'submitted' ? 'badge-info' : 'badge-success'}>
-                      {a.status}
-                    </span>
-                  </div>
-                  <p className="text-sm text-muted-foreground mb-2">{a.description}</p>
-                  <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                    <span className="flex items-center gap-1"><FileText className="w-3 h-3" />{a.courseName}</span>
-                    <span className="flex items-center gap-1">
-                      <Clock className="w-3 h-3" />
-                      Due: {new Date(a.dueDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
-                    </span>
-                    {a.grade !== undefined && (
-                      <span className="flex items-center gap-1 font-semibold text-foreground">
-                        <CheckCircle2 className="w-3 h-3" style={{ color: 'hsl(var(--success))' }} />
-                        Grade: {a.grade}/100
+          {filtered.map(a => {
+            const status = getStatus(a);
+            const sub = getSubmission(a.id);
+            return (
+              <div key={a.id} className="bg-card rounded-xl border border-border p-5 hover:shadow-md transition-all">
+                <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2 mb-1">
+                      <h3 className="font-semibold text-foreground">{a.title}</h3>
+                      <span className={status === 'pending' ? 'badge-warning' : status === 'submitted' ? 'badge-info' : 'badge-success'}>
+                        {status}
                       </span>
-                    )}
-                  </div>
-                  {a.feedback && (
-                    <div className="mt-3 p-3 rounded-lg bg-muted/50 border border-border">
-                      <div className="text-xs font-semibold text-muted-foreground mb-1">Instructor Feedback</div>
-                      <p className="text-sm text-foreground">{a.feedback}</p>
                     </div>
-                  )}
-                </div>
-                <div className="flex sm:flex-col gap-2">
-                  {a.status === 'pending' && (
-                    <Button size="sm" style={{ background: 'var(--gradient-primary)' }} className="font-semibold">
-                      <Upload className="w-3 h-3 mr-1" />Submit
+                    {a.description && <p className="text-sm text-muted-foreground mb-2 line-clamp-2">{a.description}</p>}
+                    <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                      <span className="flex items-center gap-1"><FileText className="w-3 h-3" />{a.courses?.title}</span>
+                      {a.due_date && (
+                        <span className="flex items-center gap-1">
+                          <Clock className="w-3 h-3" />Due: {new Date(a.due_date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+                        </span>
+                      )}
+                      {sub?.grade != null && (
+                        <span className="flex items-center gap-1 font-semibold text-foreground">
+                          <CheckCircle2 className="w-3 h-3" style={{ color: 'hsl(var(--success))' }} />Grade: {sub.grade}/{a.total_marks || 100}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex sm:flex-col gap-2">
+                    <Button size="sm" variant="outline" className="font-medium text-xs" onClick={() => navigate(`/student/assignments/${a.id}`)}>
+                      {status === 'pending' ? <><Upload className="w-3 h-3 mr-1" />Submit</> : 'View Details'}
                     </Button>
-                  )}
-                  {a.status === 'submitted' && (
-                    <Button size="sm" variant="outline" className="font-medium text-xs">View Submission</Button>
-                  )}
-                  {a.status === 'graded' && (
-                    <Button size="sm" variant="outline" className="font-medium text-xs">View Details</Button>
-                  )}
+                  </div>
                 </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
 
         {filtered.length === 0 && (

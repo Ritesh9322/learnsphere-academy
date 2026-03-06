@@ -3,7 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { BookOpen, Plus, Eye, Edit3, Trash2, Star, Users, Clock, Search, Loader2 } from 'lucide-react';
+import { BookOpen, Plus, Eye, Trash2, Clock, Search, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { toast } from '@/components/ui/use-toast';
@@ -38,6 +38,7 @@ export default function TeacherCourses() {
   };
 
   const filtered = courses.filter(c => c.title.toLowerCase().includes(search.toLowerCase()));
+  const rolePrefix = user?.role === 'admin' ? '/admin' : user?.role === 'teacher' ? '/teacher' : '/student';
 
   return (
     <DashboardLayout>
@@ -62,7 +63,7 @@ export default function TeacherCourses() {
         ) : (
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-5">
             {filtered.map(course => (
-              <div key={course.id} className="bg-card rounded-xl border border-border overflow-hidden hover:shadow-lg transition-all group flex flex-col">
+              <div key={course.id} className="bg-card rounded-xl border border-border overflow-hidden hover:shadow-lg transition-all group flex flex-col cursor-pointer" onClick={() => navigate(`${rolePrefix}/courses/${course.id}`)}>
                 <div className="relative h-40 overflow-hidden">
                   <img src={course.thumbnail || 'https://images.unsplash.com/photo-1498050108023-c5249f4df085?w=400'} alt={course.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
                   <div className="absolute top-3 left-3">
@@ -78,8 +79,8 @@ export default function TeacherCourses() {
                   </div>
                   <div className="flex items-center justify-between mt-auto pt-3 border-t border-border">
                     <span className="font-bold text-foreground">₹{(course.price || 0).toLocaleString()}</span>
-                    <div className="flex gap-1">
-                      <button className="p-1.5 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"><Eye className="w-4 h-4" /></button>
+                    <div className="flex gap-1" onClick={e => e.stopPropagation()}>
+                      <button onClick={() => navigate(`${rolePrefix}/courses/${course.id}`)} className="p-1.5 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"><Eye className="w-4 h-4" /></button>
                       <button onClick={() => handleDelete(course.id)} className="p-1.5 rounded-md hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors"><Trash2 className="w-4 h-4" /></button>
                     </div>
                   </div>

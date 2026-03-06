@@ -3,7 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ClipboardList, Plus, Eye, Edit3, Trash2, Clock, Target, Users, Loader2 } from 'lucide-react';
+import { ClipboardList, Plus, Eye, Edit3, Trash2, Clock, Target, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { toast } from '@/components/ui/use-toast';
 
@@ -71,8 +71,7 @@ export default function TeacherQuizzes() {
                     </div>
                   </div>
                   <div className="flex gap-2">
-                    <Button size="sm" variant="outline" className="flex-1 text-xs"><Eye className="w-3 h-3 mr-1" />View</Button>
-                    <Button size="sm" variant="outline" className="text-xs"><Edit3 className="w-3 h-3" /></Button>
+                    <Button size="sm" variant="outline" className="flex-1 text-xs" onClick={() => navigate(`/${user?.role}/quizzes/create?edit=${q.id}`)}><Eye className="w-3 h-3 mr-1" />View</Button>
                     <Button onClick={() => handleDelete(q.id)} size="sm" variant="outline" className="text-xs text-destructive hover:text-destructive"><Trash2 className="w-3 h-3" /></Button>
                   </div>
                 </div>

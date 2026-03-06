@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
+import LogoutDialog from '@/components/LogoutDialog';
 import {
   LayoutDashboard, BookOpen, FileText, ClipboardList, Users, BarChart3,
   CreditCard, Bell, User, LogOut, Menu, X, GraduationCap, Settings,
@@ -50,6 +51,7 @@ function SidebarContent({ collapsed, onClose }: { collapsed: boolean; onClose?: 
   const { user, logout } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
+  const [showLogout, setShowLogout] = useState(false);
 
   const nav = user?.role === 'admin' ? adminNav : user?.role === 'teacher' ? teacherNav : studentNav;
   const roleLabel = user?.role === 'admin' ? 'Administrator' : user?.role === 'teacher' ? 'Instructor' : 'Student';
@@ -115,12 +117,14 @@ function SidebarContent({ collapsed, onClose }: { collapsed: boolean; onClose?: 
 
       {/* Logout */}
       <div className="px-3 py-4 border-t" style={{ borderColor: 'hsl(var(--sidebar-border))' }}>
-        <button onClick={handleLogout}
+        <button onClick={() => setShowLogout(true)}
           className="nav-item w-full text-destructive hover:bg-destructive/10 hover:text-destructive">
           <LogOut className="w-4 h-4 flex-shrink-0" />
           {!collapsed && <span>Logout</span>}
         </button>
       </div>
+
+      <LogoutDialog open={showLogout} onOpenChange={setShowLogout} onConfirm={handleLogout} />
     </div>
   );
 }

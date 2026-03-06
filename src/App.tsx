@@ -13,6 +13,8 @@ import NotFound from "./pages/NotFound";
 // Shared pages
 import Notifications from "./pages/shared/Notifications";
 import ProfilePage from "./pages/shared/ProfilePage";
+import CourseDetail from "./pages/shared/CourseDetail";
+import AssignmentDetail from "./pages/shared/AssignmentDetail";
 
 // Student pages
 import StudentDashboard from "./pages/student/Dashboard";
@@ -22,6 +24,7 @@ import StudentQuizzes from "./pages/student/Quizzes";
 import StudentAttendance from "./pages/student/Attendance";
 import StudentGrades from "./pages/student/Grades";
 import Payments from "./pages/student/Payments";
+import QuizTake from "./pages/student/QuizTake";
 
 // Teacher pages
 import TeacherDashboard from "./pages/teacher/Dashboard";
@@ -65,8 +68,11 @@ function AppRoutes() {
       {/* Student Routes */}
       <Route path="/student" element={<ProtectedRoute role="student"><StudentDashboard /></ProtectedRoute>} />
       <Route path="/student/courses" element={<ProtectedRoute role="student"><CourseCatalog /></ProtectedRoute>} />
+      <Route path="/student/courses/:courseId" element={<ProtectedRoute role="student"><CourseDetail /></ProtectedRoute>} />
       <Route path="/student/assignments" element={<ProtectedRoute role="student"><StudentAssignments /></ProtectedRoute>} />
+      <Route path="/student/assignments/:assignmentId" element={<ProtectedRoute role="student"><AssignmentDetail /></ProtectedRoute>} />
       <Route path="/student/quizzes" element={<ProtectedRoute role="student"><StudentQuizzes /></ProtectedRoute>} />
+      <Route path="/student/quizzes/:quizId" element={<ProtectedRoute role="student"><QuizTake /></ProtectedRoute>} />
       <Route path="/student/attendance" element={<ProtectedRoute role="student"><StudentAttendance /></ProtectedRoute>} />
       <Route path="/student/grades" element={<ProtectedRoute role="student"><StudentGrades /></ProtectedRoute>} />
       <Route path="/student/payments" element={<ProtectedRoute role="student"><Payments /></ProtectedRoute>} />
@@ -77,8 +83,10 @@ function AppRoutes() {
       <Route path="/teacher" element={<ProtectedRoute role="teacher"><TeacherDashboard /></ProtectedRoute>} />
       <Route path="/teacher/courses" element={<ProtectedRoute role="teacher"><TeacherCourses /></ProtectedRoute>} />
       <Route path="/teacher/courses/create" element={<ProtectedRoute role="teacher"><CreateCourse /></ProtectedRoute>} />
+      <Route path="/teacher/courses/:courseId" element={<ProtectedRoute role="teacher"><CourseDetail /></ProtectedRoute>} />
       <Route path="/teacher/assignments" element={<ProtectedRoute role="teacher"><TeacherAssignments /></ProtectedRoute>} />
       <Route path="/teacher/assignments/create" element={<ProtectedRoute role="teacher"><CreateAssignment /></ProtectedRoute>} />
+      <Route path="/teacher/assignments/:assignmentId" element={<ProtectedRoute role="teacher"><AssignmentDetail /></ProtectedRoute>} />
       <Route path="/teacher/quizzes" element={<ProtectedRoute role="teacher"><TeacherQuizzes /></ProtectedRoute>} />
       <Route path="/teacher/quizzes/create" element={<ProtectedRoute role="teacher"><CreateQuiz /></ProtectedRoute>} />
       <Route path="/teacher/attendance" element={<ProtectedRoute role="teacher"><TeacherAttendance /></ProtectedRoute>} />
@@ -92,6 +100,7 @@ function AppRoutes() {
       <Route path="/admin" element={<ProtectedRoute role="admin"><AdminDashboard /></ProtectedRoute>} />
       <Route path="/admin/users" element={<ProtectedRoute role="admin"><AdminUsers /></ProtectedRoute>} />
       <Route path="/admin/courses" element={<ProtectedRoute role="admin"><AdminCourses /></ProtectedRoute>} />
+      <Route path="/admin/courses/:courseId" element={<ProtectedRoute role="admin"><CourseDetail /></ProtectedRoute>} />
       <Route path="/admin/analytics" element={<ProtectedRoute role="admin"><AdminAnalytics /></ProtectedRoute>} />
       <Route path="/admin/payments" element={<ProtectedRoute role="admin"><AdminPayments /></ProtectedRoute>} />
       <Route path="/admin/security" element={<ProtectedRoute role="admin"><AdminSecurity /></ProtectedRoute>} />

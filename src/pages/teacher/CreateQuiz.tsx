@@ -7,13 +7,14 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { toast } from '@/components/ui/use-toast';
-import { Plus, Trash2, Save, Loader2, ArrowLeft } from 'lucide-react';
+import { Plus, Trash2, Save, Loader2, ArrowLeft, ImagePlus } from 'lucide-react';
 
 interface QuestionForm {
   text: string;
   options: string[];
   correct: number;
   marks: number;
+  image_url?: string;
 }
 
 interface CourseOption { id: string; title: string; }
@@ -25,6 +26,7 @@ export default function CreateQuiz() {
   const [courses, setCourses] = useState<CourseOption[]>([]);
   const [form, setForm] = useState({ title: '', course_id: '', duration: 30 });
   const [questions, setQuestions] = useState<QuestionForm[]>([]);
+  const [uploadingIdx, setUploadingIdx] = useState<number | null>(null);
 
   useEffect(() => {
     supabase.from('courses').select('id, title').then(({ data }) => { if (data) setCourses(data); });
@@ -37,6 +39,17 @@ export default function CreateQuiz() {
   };
   const updateOption = (qi: number, oi: number, value: string) => {
     setQuestions(prev => prev.map((q, idx) => idx === qi ? { ...q, options: q.options.map((o, j) => j === oi ? value : o) } : q));
+  };
+
+  const handleImageUpload = async (qi: number, file: File) => {
+    setUploadingIdx(qi);
+    const ext = file.name.split('.').pop();
+    const path = `quiz-images/${Date.now()}-${qi}.${ext}`;
+    const { error } = await supabase.storage.from('uploads').upload(path, file);
+    if (error) { toast({ title: 'Upload failed', variant: 'destructive' }); setUploadingIdx(null); return; }
+    const { data: { publicUrl } } = supabase.storage.from('uploads').getPublicUrl(path);
+    updateQuestion(qi, 'image_url', publicUrl);
+    setUploadingIdx(null);
   };
 
   const totalMarks = questions.reduce((s, q) => s + q.marks, 0);
@@ -112,7 +125,28 @@ export default function CreateQuiz() {
                   </button>
                 </div>
               </div>
-              <div><Label className="text-xs">Question Text</Label><Input value={q.text} onChange={e => updateQuestion(qi, 'text', e.target.value)} placeholder="Enter question..." className="mt-1" /></div>
+              <div className="flex gap-3">
+                <div className="flex-1">
+                  <Label className="text-xs">Question Text</Label>
+                  <Input value={q.text} onChange={e => updateQuestion(qi, 'text', e.target.value)} placeholder="Enter question..." className="mt-1" />
+                </div>
+                <div className="flex-shrink-0">
+                  <Label className="text-xs">Image</Label>
+                  <label className="mt-1 flex items-center gap-1 px-3 py-2 rounded-md border border-input bg-background text-sm cursor-pointer hover:bg-muted transition-colors">
+                    {uploadingIdx === qi ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <ImagePlus className="w-3.5 h-3.5 text-muted-foreground" />}
+                    <span className="text-xs text-muted-foreground">{q.image_url ? 'Change' : 'Upload'}</span>
+                    <input type="file" accept="image/*" className="hidden" onChange={e => { const f = e.target.files?.[0]; if (f) handleImageUpload(qi, f); }} />
+                  </label>
+                </div>
+              </div>
+              {q.image_url && (
+                <div className="relative">
+                  <img src={q.image_url} alt="Question" className="max-h-32 rounded-lg border border-border" />
+                  <button onClick={() => updateQuestion(qi, 'image_url', undefined)} className="absolute top-1 right-1 p-1 rounded-full bg-destructive/80 text-white hover:bg-destructive">
+                    <Trash2 className="w-3 h-3" />
+                  </button>
+                </div>
+              )}
               <div className="grid sm:grid-cols-2 gap-2">
                 {q.options.map((opt, oi) => (
                   <div key={oi} className="flex items-center gap-2">

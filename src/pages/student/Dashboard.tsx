@@ -1,8 +1,10 @@
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import { useAuth } from '@/contexts/AuthContext';
-import { mockEnrollments, mockAssignments, mockQuizzes, quizPerformanceData, monthlyEnrollmentData } from '@/data/mockData';
-import { BookOpen, FileText, ClipboardList, CalendarDays, TrendingUp, Clock, AlertCircle, CheckCircle2 } from 'lucide-react';
-import { AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { supabase } from '@/integrations/supabase/client';
+import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { BookOpen, FileText, ClipboardList, TrendingUp, Clock, Loader2 } from 'lucide-react';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
 function StatCard({ icon: Icon, label, value, sub, gradient }: { icon: React.ElementType; label: string; value: string | number; sub?: string; gradient: string }) {
   return (
@@ -21,13 +23,52 @@ function StatCard({ icon: Icon, label, value, sub, gradient }: { icon: React.Ele
 
 export default function StudentDashboard() {
   const { user } = useAuth();
-  const pending = mockAssignments.filter(a => a.status === 'pending');
-  const avgProgress = Math.round(mockEnrollments.reduce((s, e) => s + e.progress, 0) / mockEnrollments.length);
+  const navigate = useNavigate();
+  const [loading, setLoading] = useState(true);
+  const [enrollments, setEnrollments] = useState<any[]>([]);
+  const [assignments, setAssignments] = useState<any[]>([]);
+  const [quizAttempts, setQuizAttempts] = useState<any[]>([]);
+  const [quizzes, setQuizzes] = useState<any[]>([]);
+
+  useEffect(() => {
+    if (!user) return;
+    const load = async () => {
+      setLoading(true);
+      const { data: enrollData } = await supabase.from('enrollments').select('*, courses(title, thumbnail)').eq('student_id', user.id);
+      const courseIds = (enrollData || []).map(e => e.course_id);
+
+      let assignData: any[] = [], quizData: any[] = [];
+      if (courseIds.length > 0) {
+        const [aRes, qRes] = await Promise.all([
+          supabase.from('assignments').select('*, courses(title)').in('course_id', courseIds).order('created_at', { ascending: false }).limit(5),
+          supabase.from('quizzes').select('*, courses(title)').in('course_id', courseIds),
+        ]);
+        assignData = aRes.data || [];
+        quizData = qRes.data || [];
+      }
+      const { data: attData } = await supabase.from('quiz_attempts').select('*').eq('student_id', user.id);
+
+      setEnrollments(enrollData || []);
+      setAssignments(assignData);
+      setQuizzes(quizData);
+      setQuizAttempts(attData || []);
+      setLoading(false);
+    };
+    load();
+  }, [user]);
+
+  if (loading) return <DashboardLayout><div className="flex items-center justify-center py-20"><Loader2 className="w-6 h-6 animate-spin text-primary" /></div></DashboardLayout>;
+
+  const avgProgress = enrollments.length > 0 ? Math.round(enrollments.reduce((s, e) => s + (e.progress || 0), 0) / enrollments.length) : 0;
+  const completedQuizzes = quizzes.filter(q => quizAttempts.some(a => a.quiz_id === q.id));
+  const quizChartData = completedQuizzes.map(q => {
+    const att = quizAttempts.find(a => a.quiz_id === q.id);
+    return { name: q.title?.substring(0, 12) || 'Quiz', score: att ? Math.round((att.score / (q.total_marks || 1)) * 100) : 0 };
+  });
 
   return (
     <DashboardLayout>
       <div className="max-w-7xl mx-auto space-y-6 animate-fade-in">
-        {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
             <h1 className="text-2xl font-display font-bold text-foreground">Good morning, {user?.name?.split(' ')[0]} 👋</h1>
@@ -39,72 +80,58 @@ export default function StudentDashboard() {
           </div>
         </div>
 
-        {/* Stats */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          <StatCard icon={BookOpen} label="Enrolled Courses" value={mockEnrollments.length} sub="Active learning" gradient="var(--gradient-primary)" />
+          <StatCard icon={BookOpen} label="Enrolled Courses" value={enrollments.length} sub="Active learning" gradient="var(--gradient-primary)" />
           <StatCard icon={TrendingUp} label="Avg Progress" value={`${avgProgress}%`} sub="Across all courses" gradient="var(--gradient-success)" />
-          <StatCard icon={FileText} label="Pending Tasks" value={pending.length} sub="Due this week" gradient="var(--gradient-warning)" />
-          <StatCard icon={ClipboardList} label="Quizzes Taken" value={mockQuizzes.filter(q => q.status === 'completed').length} sub="This semester" gradient="var(--gradient-info)" />
+          <StatCard icon={FileText} label="Assignments" value={assignments.length} sub="From your courses" gradient="var(--gradient-warning)" />
+          <StatCard icon={ClipboardList} label="Quizzes Taken" value={quizAttempts.length} sub="This semester" gradient="var(--gradient-info)" />
         </div>
 
         <div className="grid lg:grid-cols-3 gap-6">
-          {/* Course Progress */}
           <div className="lg:col-span-2 bg-card rounded-xl border border-border p-5">
             <h2 className="font-display font-semibold text-foreground mb-4">Course Progress</h2>
-            <div className="space-y-5">
-              {mockEnrollments.map(e => (
-                <div key={e.id}>
-                  <div className="flex items-center gap-3 mb-2">
-                    <img src={e.thumbnail} alt={e.courseName} className="w-10 h-10 rounded-lg object-cover" />
-                    <div className="flex-1 min-w-0">
-                      <div className="text-sm font-medium text-foreground truncate">{e.courseName}</div>
-                      <div className="text-xs text-muted-foreground">{e.instructor} · {e.completedLessons}/{e.totalLessons} lessons</div>
+            {enrollments.length === 0 ? <p className="text-sm text-muted-foreground text-center py-6">No courses enrolled yet.</p> : (
+              <div className="space-y-5">
+                {enrollments.map((e: any) => (
+                  <div key={e.id} className="cursor-pointer hover:bg-muted/30 rounded-lg p-2 -m-2 transition-colors" onClick={() => navigate(`/student/courses/${e.course_id}`)}>
+                    <div className="flex items-center gap-3 mb-2">
+                      <img src={e.courses?.thumbnail || 'https://images.unsplash.com/photo-1498050108023-c5249f4df085?w=100'} alt="" className="w-10 h-10 rounded-lg object-cover" />
+                      <div className="flex-1 min-w-0">
+                        <div className="text-sm font-medium text-foreground truncate">{e.courses?.title}</div>
+                      </div>
+                      <span className="text-sm font-bold" style={{ color: 'hsl(var(--primary))' }}>{e.progress || 0}%</span>
                     </div>
-                    <span className="text-sm font-bold" style={{ color: 'hsl(var(--primary))' }}>{e.progress}%</span>
+                    <div className="progress-bar"><div className="progress-fill" style={{ width: `${e.progress || 0}%` }} /></div>
                   </div>
-                  <div className="progress-bar ml-13">
-                    <div className="progress-fill" style={{ width: `${e.progress}%` }} />
-                  </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
           </div>
 
-          {/* Upcoming */}
           <div className="bg-card rounded-xl border border-border p-5">
-            <h2 className="font-display font-semibold text-foreground mb-4">Upcoming Deadlines</h2>
-            <div className="space-y-3">
-              {pending.map(a => (
-                <div key={a.id} className="flex items-start gap-3 p-3 rounded-lg bg-muted/50">
-                  <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" style={{ color: 'hsl(var(--warning))' }} />
-                  <div className="min-w-0">
-                    <div className="text-sm font-medium text-foreground truncate">{a.title}</div>
-                    <div className="text-xs text-muted-foreground">{a.courseName}</div>
-                    <div className="text-xs mt-1 font-medium" style={{ color: 'hsl(var(--destructive))' }}>
-                      Due: {new Date(a.dueDate).toLocaleDateString('en-IN')}
+            <h2 className="font-display font-semibold text-foreground mb-4">Recent Assignments</h2>
+            {assignments.length === 0 ? <p className="text-sm text-muted-foreground text-center py-6">No assignments yet.</p> : (
+              <div className="space-y-3">
+                {assignments.slice(0, 5).map((a: any) => (
+                  <div key={a.id} className="flex items-start gap-3 p-3 rounded-lg bg-muted/50 cursor-pointer hover:bg-muted transition-colors" onClick={() => navigate(`/student/assignments/${a.id}`)}>
+                    <FileText className="w-4 h-4 flex-shrink-0 mt-0.5" style={{ color: 'hsl(var(--warning))' }} />
+                    <div className="min-w-0">
+                      <div className="text-sm font-medium text-foreground truncate">{a.title}</div>
+                      <div className="text-xs text-muted-foreground">{a.courses?.title}</div>
+                      {a.due_date && <div className="text-xs mt-1 font-medium" style={{ color: 'hsl(var(--destructive))' }}>Due: {new Date(a.due_date).toLocaleDateString('en-IN')}</div>}
                     </div>
                   </div>
-                </div>
-              ))}
-              <div className="flex items-start gap-3 p-3 rounded-lg bg-muted/50">
-                <ClipboardList className="w-4 h-4 flex-shrink-0 mt-0.5" style={{ color: 'hsl(var(--info))' }} />
-                <div>
-                  <div className="text-sm font-medium text-foreground">Python & Pandas Quiz</div>
-                  <div className="text-xs text-muted-foreground">Data Science & ML</div>
-                  <div className="text-xs mt-1 font-medium" style={{ color: 'hsl(var(--info))' }}>Available Now</div>
-                </div>
+                ))}
               </div>
-            </div>
+            )}
           </div>
         </div>
 
-        {/* Charts Row */}
-        <div className="grid lg:grid-cols-2 gap-6">
-          {/* Quiz Performance */}
+        {quizChartData.length > 0 && (
           <div className="bg-card rounded-xl border border-border p-5">
             <h2 className="font-display font-semibold text-foreground mb-4">Quiz Performance</h2>
             <ResponsiveContainer width="100%" height={200}>
-              <BarChart data={quizPerformanceData} barSize={32}>
+              <BarChart data={quizChartData} barSize={32}>
                 <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                 <XAxis dataKey="name" tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }} />
                 <YAxis domain={[0, 100]} tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }} />
@@ -113,85 +140,7 @@ export default function StudentDashboard() {
               </BarChart>
             </ResponsiveContainer>
           </div>
-
-          {/* Learning Activity */}
-          <div className="bg-card rounded-xl border border-border p-5">
-            <h2 className="font-display font-semibold text-foreground mb-4">Monthly Enrollment Trend</h2>
-            <ResponsiveContainer width="100%" height={200}>
-              <AreaChart data={monthlyEnrollmentData}>
-                <defs>
-                  <linearGradient id="colorEnroll" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.3} />
-                    <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                <XAxis dataKey="month" tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} />
-                <YAxis tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} />
-                <Tooltip contentStyle={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: '8px' }} />
-                <Area type="monotone" dataKey="enrollments" stroke="hsl(var(--primary))" strokeWidth={2} fill="url(#colorEnroll)" />
-              </AreaChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
-
-        {/* Recent Assignments */}
-        <div className="bg-card rounded-xl border border-border p-5">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="font-display font-semibold text-foreground">Recent Assignments</h2>
-            <button className="text-sm text-primary hover:underline font-medium">View all</button>
-          </div>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-border">
-                  <th className="text-left py-2 text-muted-foreground font-medium">Assignment</th>
-                  <th className="text-left py-2 text-muted-foreground font-medium">Course</th>
-                  <th className="text-left py-2 text-muted-foreground font-medium">Due Date</th>
-                  <th className="text-left py-2 text-muted-foreground font-medium">Status</th>
-                  <th className="text-left py-2 text-muted-foreground font-medium">Grade</th>
-                </tr>
-              </thead>
-              <tbody>
-                {mockAssignments.map(a => (
-                  <tr key={a.id} className="border-b border-border/50 hover:bg-muted/30 transition-colors">
-                    <td className="py-3 font-medium text-foreground">{a.title}</td>
-                    <td className="py-3 text-muted-foreground">{a.courseName}</td>
-                    <td className="py-3 text-muted-foreground">{new Date(a.dueDate).toLocaleDateString('en-IN')}</td>
-                    <td className="py-3">
-                      <span className={a.status === 'pending' ? 'badge-warning' : a.status === 'submitted' ? 'badge-info' : 'badge-success'}>
-                        {a.status === 'pending' ? 'Pending' : a.status === 'submitted' ? 'Submitted' : 'Graded'}
-                      </span>
-                    </td>
-                    <td className="py-3">
-                      {a.grade ? <span className="font-semibold text-foreground">{a.grade}/100</span> : <span className="text-muted-foreground">—</span>}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-
-        {/* Quick Quiz Info */}
-        <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          {mockQuizzes.map(q => (
-            <div key={q.id} className="stat-card">
-              <div className="flex items-center justify-between mb-3">
-                <span className={q.status === 'completed' ? 'badge-success' : q.status === 'available' ? 'badge-info' : 'badge-warning'}>
-                  {q.status.charAt(0).toUpperCase() + q.status.slice(1)}
-                </span>
-                {q.status === 'completed' && <CheckCircle2 className="w-4 h-4" style={{ color: 'hsl(var(--success))' }} />}
-              </div>
-              <div className="font-medium text-foreground text-sm mb-1">{q.title}</div>
-              <div className="text-xs text-muted-foreground mb-2">{q.courseName}</div>
-              {q.score !== undefined && (
-                <div className="text-lg font-display font-bold" style={{ color: 'hsl(var(--primary))' }}>{q.score}/{q.totalMarks}</div>
-              )}
-              <div className="text-xs text-muted-foreground">{q.duration} min · {q.questions} questions</div>
-            </div>
-          ))}
-        </div>
+        )}
       </div>
     </DashboardLayout>
   );
