@@ -3,14 +3,10 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { FileText, Plus, Eye, MessageSquare, Clock, Search, Loader2 } from 'lucide-react';
+import { FileText, Plus, Eye, Clock, Search, Loader2, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-
-interface AssignmentRow {
-  id: string; title: string; description: string | null; due_date: string | null; course_id: string;
-  courses?: { title: string };
-}
+import { toast } from '@/components/ui/use-toast';
 
 export default function TeacherAssignments() {
   const { user } = useAuth();
@@ -26,7 +22,15 @@ export default function TeacherAssignments() {
     });
   }, []);
 
+  const handleDelete = async (id: string) => {
+    if (!confirm('Delete this assignment?')) return;
+    await supabase.from('assignments').delete().eq('id', id);
+    setAssignments(prev => prev.filter(a => a.id !== id));
+    toast({ title: 'Assignment deleted' });
+  };
+
   const filtered = assignments.filter((a: any) => a.title.toLowerCase().includes(search.toLowerCase()));
+  const rolePrefix = user?.role === 'admin' ? '/admin' : user?.role === 'teacher' ? '/teacher' : '/student';
 
   return (
     <DashboardLayout>
@@ -65,7 +69,8 @@ export default function TeacherAssignments() {
                 </div>
                 {a.description && <p className="text-xs text-muted-foreground line-clamp-2 mb-3">{a.description}</p>}
                 <div className="flex gap-2">
-                  <Button size="sm" variant="outline" className="text-xs flex-1"><Eye className="w-3 h-3 mr-1" />View</Button>
+                  <Button size="sm" variant="outline" className="text-xs flex-1" onClick={() => navigate(`${rolePrefix}/assignments/${a.id}`)}><Eye className="w-3 h-3 mr-1" />View</Button>
+                  <Button size="sm" variant="outline" className="text-xs text-destructive hover:text-destructive" onClick={() => handleDelete(a.id)}><Trash2 className="w-3 h-3" /></Button>
                 </div>
               </div>
             ))}
