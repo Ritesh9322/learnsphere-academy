@@ -25,6 +25,7 @@ import StudentAttendance from "./pages/student/Attendance";
 import StudentGrades from "./pages/student/Grades";
 import Payments from "./pages/student/Payments";
 import QuizTake from "./pages/student/QuizTake";
+import PaymentSuccess from "./pages/student/PaymentSuccess";
 
 // Teacher pages
 import TeacherDashboard from "./pages/teacher/Dashboard";
