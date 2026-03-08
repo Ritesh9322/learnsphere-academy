@@ -79,6 +79,27 @@ Status: ${payment.status}
           </div>
         </div>
 
+        {/* Subscription Status */}
+        {isSubscribed && (
+          <div className="bg-card rounded-xl border border-primary/30 p-5 flex items-center justify-between" style={{ background: 'linear-gradient(135deg, hsl(var(--primary)/0.08), hsl(var(--card)))' }}>
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-primary/10">
+                <Crown className="w-5 h-5 text-primary" />
+              </div>
+              <div>
+                <div className="font-display font-semibold text-foreground">All Access Subscription</div>
+                <div className="text-xs text-muted-foreground">
+                  {subscriptionEnd ? `Renews on ${new Date(subscriptionEnd).toLocaleDateString('en-IN')}` : 'Active'}
+                </div>
+              </div>
+            </div>
+            <Button variant="outline" size="sm" onClick={handleManageSubscription} disabled={portalLoading}>
+              {portalLoading ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : <Settings className="w-4 h-4 mr-1" />}
+              Manage
+            </Button>
+          </div>
+        )}
+
         {/* Summary */}
         <div className="grid grid-cols-3 gap-4">
           <div className="stat-card text-center">
