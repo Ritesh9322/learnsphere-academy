@@ -33,6 +33,21 @@ export default function Payments() {
 
   const total = payments.filter(p => p.status === 'paid').reduce((s, p) => s + Number(p.amount), 0);
 
+  const handleManageSubscription = async () => {
+    setPortalLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('customer-portal');
+      if (error) throw error;
+      if (data?.url) {
+        window.open(data.url, '_blank');
+      }
+    } catch (err: any) {
+      toast({ title: 'Error', description: err.message || 'Could not open subscription portal', variant: 'destructive' });
+    } finally {
+      setPortalLoading(false);
+    }
+  };
+
   const downloadInvoice = (payment: any) => {
     const invoiceContent = `
 INVOICE
