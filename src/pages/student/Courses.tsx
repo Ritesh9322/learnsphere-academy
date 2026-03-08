@@ -3,10 +3,11 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, BookOpen, Clock, Users, Play, ChevronRight, Loader2 } from 'lucide-react';
+import { Search, BookOpen, Clock, Play, ChevronRight, Loader2, CreditCard, CheckCircle2, IndianRupee, ShieldCheck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
+import { toast } from '@/components/ui/use-toast';
 
 interface CourseRow {
   id: string; title: string; description: string | null; category: string | null;
@@ -23,7 +24,9 @@ export default function CourseCatalog() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState('All');
-  const [showPurchaseDialog, setShowPurchaseDialog] = useState(false);
+  const [selectedCourse, setSelectedCourse] = useState<CourseRow | null>(null);
+  const [purchasing, setPurchasing] = useState(false);
+  const [purchaseSuccess, setPurchaseSuccess] = useState(false);
   const [instructorNames, setInstructorNames] = useState<Record<string, string>>({});
 
   useEffect(() => {
@@ -40,7 +43,6 @@ export default function CourseCatalog() {
       setEnrolledIds(enrollments.map(e => e.course_id));
       setEnrollmentProgress(Object.fromEntries(enrollments.map(e => [e.course_id, e.progress || 0])));
 
-      // Fetch instructor names
       const instrIds = [...new Set(courseData.map(c => c.instructor_id).filter(Boolean))];
       if (instrIds.length > 0) {
         const { data: profiles } = await supabase.from('profiles').select('user_id, name').in('user_id', instrIds as string[]);
@@ -61,7 +63,43 @@ export default function CourseCatalog() {
     if (enrolledIds.includes(course.id)) {
       navigate(`/student/courses/${course.id}`);
     } else {
-      setShowPurchaseDialog(true);
+      setSelectedCourse(course);
+      setPurchaseSuccess(false);
+    }
+  };
+
+  const handlePurchase = async () => {
+    if (!user || !selectedCourse) return;
+    setPurchasing(true);
+
+    try {
+      // Create payment record
+      const { error: payErr } = await supabase.from('payments').insert({
+        student_id: user.id,
+        course_id: selectedCourse.id,
+        amount: selectedCourse.price || 0,
+        status: 'completed',
+        payment_id: `PAY-${Date.now()}`,
+      });
+      if (payErr) throw payErr;
+
+      // Create enrollment
+      const { error: enrollErr } = await supabase.from('enrollments').insert({
+        student_id: user.id,
+        course_id: selectedCourse.id,
+        progress: 0,
+      });
+      if (enrollErr) throw enrollErr;
+
+      // Update local state
+      setEnrolledIds(prev => [...prev, selectedCourse.id]);
+      setEnrollmentProgress(prev => ({ ...prev, [selectedCourse.id]: 0 }));
+      setPurchaseSuccess(true);
+      toast({ title: 'Course purchased successfully!', description: `You are now enrolled in "${selectedCourse.title}"` });
+    } catch (err: any) {
+      toast({ title: 'Purchase failed', description: err.message, variant: 'destructive' });
+    } finally {
+      setPurchasing(false);
     }
   };
 
@@ -126,7 +164,9 @@ export default function CourseCatalog() {
                     </div>
                   )}
                   <div className="flex items-center justify-between mt-auto" onClick={e => e.stopPropagation()}>
-                    <span className="font-bold text-foreground">₹{(course.price || 0).toLocaleString()}</span>
+                    <span className="font-bold text-foreground">
+                      {(course.price || 0) === 0 ? 'Free' : `₹${(course.price || 0).toLocaleString()}`}
+                    </span>
                     <Button size="sm" className="font-semibold text-xs" style={{ background: enrolled ? 'var(--gradient-success)' : 'var(--gradient-primary)' }} onClick={() => handleCourseClick(course)}>
                       {enrolled ? (<><Play className="w-3 h-3 mr-1" />Continue</>) : (<><ChevronRight className="w-3 h-3 mr-1" />Enroll</>)}
                     </Button>
@@ -144,16 +184,91 @@ export default function CourseCatalog() {
           </div>
         )}
 
-        <Dialog open={showPurchaseDialog} onOpenChange={setShowPurchaseDialog}>
-          <DialogContent className="max-w-sm">
-            <DialogHeader>
-              <DialogTitle>Course Not Purchased</DialogTitle>
-              <DialogDescription>Please purchase this course to continue. Visit the payments page to complete your purchase.</DialogDescription>
-            </DialogHeader>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setShowPurchaseDialog(false)}>Cancel</Button>
-              <Button onClick={() => { setShowPurchaseDialog(false); navigate('/student/payments'); }} style={{ background: 'var(--gradient-primary)' }} className="font-semibold">Browse Courses</Button>
-            </DialogFooter>
+        {/* Purchase / Enrollment Dialog */}
+        <Dialog open={!!selectedCourse} onOpenChange={(open) => { if (!open) { setSelectedCourse(null); setPurchaseSuccess(false); } }}>
+          <DialogContent className="max-w-md p-0 overflow-hidden">
+            {purchaseSuccess ? (
+              <div className="p-8 text-center space-y-4">
+                <div className="w-16 h-16 rounded-full mx-auto flex items-center justify-center" style={{ background: 'var(--gradient-success)' }}>
+                  <CheckCircle2 className="w-8 h-8 text-white" />
+                </div>
+                <div>
+                  <h3 className="text-xl font-display font-bold text-foreground">Enrollment Successful!</h3>
+                  <p className="text-sm text-muted-foreground mt-1">You now have full access to "{selectedCourse?.title}"</p>
+                </div>
+                <Button
+                  onClick={() => { setSelectedCourse(null); setPurchaseSuccess(false); navigate(`/student/courses/${selectedCourse?.id}`); }}
+                  className="w-full font-semibold"
+                  style={{ background: 'var(--gradient-primary)' }}
+                >
+                  <Play className="w-4 h-4 mr-2" />Start Learning
+                </Button>
+              </div>
+            ) : selectedCourse && (
+              <>
+                {/* Course preview header */}
+                <div className="relative h-40 overflow-hidden">
+                  <img src={selectedCourse.thumbnail || 'https://images.unsplash.com/photo-1498050108023-c5249f4df085?w=600'} alt={selectedCourse.title} className="w-full h-full object-cover" />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent" />
+                  <div className="absolute bottom-4 left-4 right-4">
+                    <h3 className="text-white font-display font-bold text-lg">{selectedCourse.title}</h3>
+                    <div className="flex items-center gap-2 mt-1">
+                      {selectedCourse.category && <span className="text-white/80 text-xs bg-white/20 px-2 py-0.5 rounded">{selectedCourse.category}</span>}
+                      {selectedCourse.level && <span className="text-white/80 text-xs bg-white/20 px-2 py-0.5 rounded">{selectedCourse.level}</span>}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="p-6 space-y-5">
+                  {selectedCourse.description && (
+                    <p className="text-sm text-muted-foreground line-clamp-2">{selectedCourse.description}</p>
+                  )}
+
+                  {/* Order summary */}
+                  <div className="bg-muted/50 rounded-xl p-4 space-y-3">
+                    <h4 className="text-sm font-semibold text-foreground">Order Summary</h4>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">Course Price</span>
+                      <span className="text-foreground font-medium">
+                        {(selectedCourse.price || 0) === 0 ? 'Free' : `₹${(selectedCourse.price || 0).toLocaleString()}`}
+                      </span>
+                    </div>
+                    <div className="border-t border-border pt-2 flex justify-between text-sm">
+                      <span className="font-semibold text-foreground">Total</span>
+                      <span className="font-bold text-lg" style={{ color: 'hsl(var(--primary))' }}>
+                        {(selectedCourse.price || 0) === 0 ? 'Free' : `₹${(selectedCourse.price || 0).toLocaleString()}`}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Trust indicators */}
+                  <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                    <span className="flex items-center gap-1"><ShieldCheck className="w-3.5 h-3.5" />Secure payment</span>
+                    <span className="flex items-center gap-1"><BookOpen className="w-3.5 h-3.5" />Lifetime access</span>
+                  </div>
+
+                  <div className="flex gap-3">
+                    <Button variant="outline" onClick={() => setSelectedCourse(null)} className="flex-1" disabled={purchasing}>
+                      Cancel
+                    </Button>
+                    <Button
+                      onClick={handlePurchase}
+                      disabled={purchasing}
+                      className="flex-1 font-semibold"
+                      style={{ background: 'var(--gradient-primary)' }}
+                    >
+                      {purchasing ? (
+                        <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Processing...</>
+                      ) : (selectedCourse.price || 0) === 0 ? (
+                        <><CheckCircle2 className="w-4 h-4 mr-2" />Enroll Free</>
+                      ) : (
+                        <><CreditCard className="w-4 h-4 mr-2" />Pay ₹{(selectedCourse.price || 0).toLocaleString()}</>
+                      )}
+                    </Button>
+                  </div>
+                </div>
+              </>
+            )}
           </DialogContent>
         </Dialog>
       </div>
