@@ -1,7 +1,8 @@
 import { Link } from 'react-router-dom';
-import { BookOpen, Star, Users, Clock, ArrowRight, CheckCircle, GraduationCap, Award, TrendingUp, Shield, ChevronRight, Play } from 'lucide-react';
+import { BookOpen, Star, Users, Clock, ArrowRight, CheckCircle, GraduationCap, Award, TrendingUp, Shield, ChevronRight, Play, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { mockCourses } from '@/data/mockData';
+import { supabase } from '@/integrations/supabase/client';
+import { useState, useEffect } from 'react';
 import heroBg from '@/assets/hero-bg.jpg';
 
 const features = [
@@ -17,14 +18,37 @@ const testimonials = [
   { name: 'Kavya Reddy', role: 'UX Designer at Swiggy', avatar: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=80', text: 'Best investment I\'ve made in my professional development. The UI/UX course gave me exactly what I needed.', rating: 5 },
 ];
 
-const stats = [
-  { number: '10,000+', label: 'Active Students' },
-  { number: '500+', label: 'Courses' },
-  { number: '150+', label: 'Expert Instructors' },
-  { number: '98%', label: 'Satisfaction Rate' },
-];
-
 export default function Landing() {
+  const [courses, setCourses] = useState<any[]>([]);
+  const [stats, setStats] = useState({ students: 0, courses: 0, instructors: 0 });
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const load = async () => {
+      const [coursesRes, enrollRes, profilesRes] = await Promise.all([
+        supabase.from('courses').select('*').eq('status', 'published').order('created_at', { ascending: false }).limit(6),
+        supabase.from('enrollments').select('student_id'),
+        supabase.from('profiles').select('user_id'),
+      ]);
+      setCourses(coursesRes.data || []);
+      const uniqueStudents = new Set((enrollRes.data || []).map(e => e.student_id)).size;
+      setStats({
+        students: uniqueStudents,
+        courses: (coursesRes.data || []).length,
+        instructors: new Set((coursesRes.data || []).map((c: any) => c.instructor_id).filter(Boolean)).size,
+      });
+      setLoading(false);
+    };
+    load();
+  }, []);
+
+  const displayStats = [
+    { number: stats.students > 0 ? `${stats.students.toLocaleString()}+` : '0', label: 'Active Students' },
+    { number: stats.courses > 0 ? `${stats.courses}+` : '0', label: 'Courses' },
+    { number: stats.instructors > 0 ? `${stats.instructors}+` : '0', label: 'Expert Instructors' },
+    { number: '98%', label: 'Satisfaction Rate' },
+  ];
+
   return (
     <div className="min-h-screen bg-background">
       {/* Navbar */}
@@ -55,7 +79,7 @@ export default function Landing() {
       {/* Hero */}
       <section className="relative min-h-[90vh] flex items-center overflow-hidden">
         <div className="absolute inset-0">
-          <img src={heroBg} alt="Hero" className="w-full h-full object-cover" />
+          <img src={heroBg} alt="Students learning together with modern technology" className="w-full h-full object-cover" />
           <div className="absolute inset-0" style={{ background: 'linear-gradient(to right, hsl(222 47% 8% / 0.95) 40%, hsl(222 47% 8% / 0.4))' }} />
         </div>
         <div className="relative max-w-7xl mx-auto px-6 py-24 grid lg:grid-cols-2 gap-12 items-center">
@@ -66,10 +90,10 @@ export default function Landing() {
             </div>
             <h1 className="text-5xl lg:text-6xl font-display font-bold text-white leading-[1.1] mb-6">
               Master Skills That<br />
-              <span className="gradient-text">Matter in 2024</span>
+              <span className="gradient-text">Matter in 2025</span>
             </h1>
             <p className="text-white/70 text-lg leading-relaxed mb-8 max-w-lg">
-              Join 10,000+ students learning from India's top instructors. From web development to data science — build real skills, get certified, land your dream job.
+              Join thousands of students learning from India's top instructors. From web development to data science — build real skills, get certified, land your dream job.
             </p>
             <div className="flex flex-wrap gap-4 mb-10">
               <Link to="/register">
@@ -103,7 +127,7 @@ export default function Landing() {
       <section className="bg-primary py-14">
         <div className="max-w-7xl mx-auto px-6">
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-8">
-            {stats.map(({ number, label }) => (
+            {displayStats.map(({ number, label }) => (
               <div key={label} className="text-center">
                 <div className="text-3xl font-display font-bold text-white mb-1">{number}</div>
                 <div className="text-white/70 text-sm">{label}</div>
@@ -123,40 +147,42 @@ export default function Landing() {
             <h2 className="text-4xl font-display font-bold text-foreground mb-4">Learn from the Best</h2>
             <p className="text-muted-foreground max-w-xl mx-auto">Carefully curated courses designed by industry experts to give you real-world skills</p>
           </div>
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {mockCourses.map(course => (
-              <div key={course.id} className="bg-card rounded-xl border border-border overflow-hidden hover:shadow-lg transition-all duration-300 group">
-                <div className="relative h-48 overflow-hidden">
-                  <img src={course.thumbnail} alt={course.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
-                  <div className="absolute top-3 left-3">
-                    <span className={`text-xs font-semibold px-2 py-1 rounded-md ${course.level === 'Beginner' ? 'badge-success' : course.level === 'Intermediate' ? 'badge-warning' : 'badge-info'}`}>
-                      {course.level}
-                    </span>
+          {loading ? (
+            <div className="flex justify-center py-12"><Loader2 className="w-6 h-6 animate-spin text-primary" /></div>
+          ) : courses.length === 0 ? (
+            <p className="text-center text-muted-foreground py-12">No courses available yet. Check back soon!</p>
+          ) : (
+            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {courses.map((course: any) => (
+                <div key={course.id} className="bg-card rounded-xl border border-border overflow-hidden hover:shadow-lg transition-all duration-300 group">
+                  <div className="relative h-48 overflow-hidden">
+                    <img src={course.thumbnail || 'https://images.unsplash.com/photo-1498050108023-c5249f4df085?w=400'} alt={course.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                    <div className="absolute top-3 left-3">
+                      <span className={`text-xs font-semibold px-2 py-1 rounded-md ${course.level === 'beginner' ? 'badge-success' : course.level === 'intermediate' ? 'badge-warning' : 'badge-info'}`}>
+                        {course.level ? course.level.charAt(0).toUpperCase() + course.level.slice(1) : 'Beginner'}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="p-5">
+                    <div className="flex items-center gap-2 mb-2">
+                      {course.category && <span className="badge-primary text-[10px]">{course.category}</span>}
+                    </div>
+                    <h3 className="font-display font-semibold text-foreground text-base mb-1 line-clamp-2">{course.title}</h3>
+                    <p className="text-muted-foreground text-sm mb-3 line-clamp-2">{course.description}</p>
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground mb-3">
+                      {course.duration && <span className="flex items-center gap-1"><Clock className="w-3.5 h-3.5" />{course.duration}</span>}
+                    </div>
+                    <div className="flex items-center justify-between pt-3 border-t border-border">
+                      <span className="font-bold text-foreground">{course.price > 0 ? `₹${Number(course.price).toLocaleString()}` : 'Free'}</span>
+                      <Link to="/register">
+                        <Button size="sm" className="font-semibold" style={{ background: 'var(--gradient-primary)' }}>Enroll Now</Button>
+                      </Link>
+                    </div>
                   </div>
                 </div>
-                <div className="p-5">
-                  <div className="flex items-center gap-2 mb-2">
-                    <span className="badge-primary text-[10px]">{course.category}</span>
-                  </div>
-                  <h3 className="font-display font-semibold text-foreground text-base mb-1 line-clamp-2">{course.title}</h3>
-                  <p className="text-muted-foreground text-sm mb-3 line-clamp-2">{course.description}</p>
-                  <div className="flex items-center gap-2 text-xs text-muted-foreground mb-3">
-                    <span className="flex items-center gap-1"><Clock className="w-3.5 h-3.5" />{course.duration}</span>
-                    <span>·</span>
-                    <span className="flex items-center gap-1"><Users className="w-3.5 h-3.5" />{course.students.toLocaleString()}</span>
-                    <span>·</span>
-                    <span className="flex items-center gap-1 text-yellow-500"><Star className="w-3.5 h-3.5 fill-yellow-500" />{course.rating}</span>
-                  </div>
-                  <div className="flex items-center justify-between pt-3 border-t border-border">
-                    <span className="font-bold text-foreground">₹{course.price.toLocaleString()}</span>
-                    <Link to="/register">
-                      <Button size="sm" className="font-semibold" style={{ background: 'var(--gradient-primary)' }}>Enroll Now</Button>
-                    </Link>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
           <div className="text-center mt-10">
             <Link to="/login">
               <Button size="lg" variant="outline" className="font-semibold">
@@ -292,7 +318,7 @@ export default function Landing() {
             ))}
           </div>
           <div className="border-t border-white/10 pt-6 text-center text-white/40 text-sm">
-            © 2024 LMS Academy. All rights reserved.
+            © 2025 LMS Academy. All rights reserved.
           </div>
         </div>
       </footer>

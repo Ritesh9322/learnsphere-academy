@@ -1,16 +1,19 @@
 import DashboardLayout from '@/components/layout/DashboardLayout';
-import { mockCourses, revenueData, monthlyEnrollmentData, categoryData } from '@/data/mockData';
+import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/integrations/supabase/client';
+import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
-  Users, BookOpen, DollarSign, TrendingUp, UserCheck, UserX, ShieldCheck,
-  BarChart3, Activity, Plus, Search, Eye, Edit3, Trash2
+  Users, BookOpen, DollarSign, TrendingUp, UserCheck, ShieldCheck,
+  BarChart3, Activity, Plus, Search, Eye, Edit3, Trash2, Loader2
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { toast } from '@/components/ui/use-toast';
 import {
   AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, PieChart, Pie, Cell, Legend
 } from 'recharts';
-import { useState } from 'react';
 
 function StatCard({ icon: Icon, label, value, delta, gradient, deltaPositive = true }: any) {
   return (
@@ -29,23 +32,78 @@ function StatCard({ icon: Icon, label, value, delta, gradient, deltaPositive = t
 
 const PIE_COLORS = ['hsl(221,83%,53%)', 'hsl(142,71%,45%)', 'hsl(199,89%,48%)', 'hsl(38,92%,50%)', 'hsl(250,83%,55%)', 'hsl(0,84%,60%)'];
 
-const mockUsers = [
-  { id: 1, name: 'Rahul Verma', email: 'rahul@email.com', role: 'student', status: 'active', joined: '2024-01-10', courses: 3 },
-  { id: 2, name: 'Dr. Priya Sharma', email: 'priya@email.com', role: 'teacher', status: 'active', joined: '2023-07-15', courses: 3 },
-  { id: 3, name: 'Neha Reddy', email: 'neha@email.com', role: 'student', status: 'active', joined: '2024-02-05', courses: 2 },
-  { id: 4, name: 'Mr. Vikram Singh', email: 'vikram@email.com', role: 'teacher', status: 'active', joined: '2023-08-20', courses: 2 },
-  { id: 5, name: 'Aditya Bose', email: 'aditya@email.com', role: 'student', status: 'blocked', joined: '2024-01-22', courses: 1 },
-  { id: 6, name: 'Kavya Patel', email: 'kavya@email.com', role: 'student', status: 'active', joined: '2024-03-01', courses: 4 },
-];
-
 export default function AdminDashboard() {
+  const navigate = useNavigate();
+  const [loading, setLoading] = useState(true);
+  const [users, setUsers] = useState<any[]>([]);
+  const [courses, setCourses] = useState<any[]>([]);
+  const [payments, setPayments] = useState<any[]>([]);
+  const [enrollments, setEnrollments] = useState<any[]>([]);
   const [userSearch, setUserSearch] = useState('');
-  const filtered = mockUsers.filter(u => u.name.toLowerCase().includes(userSearch.toLowerCase()) || u.email.toLowerCase().includes(userSearch.toLowerCase()));
+
+  useEffect(() => {
+    const load = async () => {
+      setLoading(true);
+      const [usersRes, coursesRes, paymentsRes, enrollRes] = await Promise.all([
+        supabase.from('profiles').select('*, user_roles(role)'),
+        supabase.from('courses').select('*').order('created_at', { ascending: false }).limit(10),
+        supabase.from('payments').select('*, courses(title)').order('paid_at', { ascending: false }).limit(20),
+        supabase.from('enrollments').select('*'),
+      ]);
+      setUsers(usersRes.data || []);
+      setCourses(coursesRes.data || []);
+      setPayments(paymentsRes.data || []);
+      setEnrollments(enrollRes.data || []);
+      setLoading(false);
+    };
+    load();
+  }, []);
+
+  if (loading) return <DashboardLayout><div className="flex items-center justify-center py-20"><Loader2 className="w-6 h-6 animate-spin text-primary" /></div></DashboardLayout>;
+
+  const studentCount = users.filter((u: any) => u.user_roles?.[0]?.role === 'student' || (!u.user_roles?.length)).length;
+  const teacherCount = users.filter((u: any) => u.user_roles?.[0]?.role === 'teacher').length;
+  const totalRevenue = payments.filter(p => p.status === 'completed' || p.status === 'paid').reduce((s, p) => s + Number(p.amount || 0), 0);
+  const uniqueStudents = new Set(enrollments.map(e => e.student_id)).size;
+
+  // Build category data from real courses
+  const categoryMap: Record<string, number> = {};
+  courses.forEach(c => {
+    const cat = c.category || 'Other';
+    categoryMap[cat] = (categoryMap[cat] || 0) + 1;
+  });
+  const categoryData = Object.entries(categoryMap).map(([name, value]) => ({ name, value }));
+
+  // Monthly enrollment data from real enrollments
+  const monthlyMap: Record<string, number> = {};
+  enrollments.forEach(e => {
+    const d = new Date(e.enrolled_at);
+    const key = d.toLocaleDateString('en-US', { month: 'short', year: '2-digit' });
+    monthlyMap[key] = (monthlyMap[key] || 0) + 1;
+  });
+  const monthlyEnrollmentData = Object.entries(monthlyMap).slice(-7).map(([month, enrollments]) => ({ month, enrollments }));
+
+  // Revenue by month
+  const revenueMap: Record<string, number> = {};
+  payments.filter(p => p.status === 'completed' || p.status === 'paid').forEach(p => {
+    const d = new Date(p.paid_at);
+    const key = d.toLocaleDateString('en-US', { month: 'short', year: '2-digit' });
+    revenueMap[key] = (revenueMap[key] || 0) + Number(p.amount || 0);
+  });
+  const revenueData = Object.entries(revenueMap).slice(-7).map(([month, revenue]) => ({ month, revenue }));
+
+  const filtered = users.filter(u => u.name.toLowerCase().includes(userSearch.toLowerCase()) || u.email.toLowerCase().includes(userSearch.toLowerCase()));
+
+  const handleDeleteCourse = async (id: string) => {
+    if (!confirm('Delete this course?')) return;
+    await supabase.from('courses').delete().eq('id', id);
+    setCourses(prev => prev.filter(c => c.id !== id));
+    toast({ title: 'Course deleted' });
+  };
 
   return (
     <DashboardLayout>
       <div className="max-w-7xl mx-auto space-y-6 animate-fade-in">
-        {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
             <h1 className="text-2xl font-display font-bold text-foreground">Admin Control Center</h1>
@@ -57,81 +115,75 @@ export default function AdminDashboard() {
           </div>
         </div>
 
-        {/* Stats */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          <StatCard icon={Users} label="Total Students" value="10,284" delta="+312 this month" gradient="var(--gradient-primary)" />
-          <StatCard icon={UserCheck} label="Active Teachers" value="148" delta="+12 approved" gradient="var(--gradient-success)" />
-          <StatCard icon={DollarSign} label="Total Revenue" value="₹42.5L" delta="+18% vs last month" gradient="var(--gradient-warning)" />
-          <StatCard icon={BookOpen} label="Total Courses" value={mockCourses.length} delta="2 awaiting review" gradient="var(--gradient-info)" />
+          <StatCard icon={Users} label="Total Students" value={uniqueStudents.toLocaleString()} delta={`${studentCount} registered`} gradient="var(--gradient-primary)" />
+          <StatCard icon={UserCheck} label="Active Teachers" value={teacherCount} gradient="var(--gradient-success)" />
+          <StatCard icon={DollarSign} label="Total Revenue" value={`₹${totalRevenue > 100000 ? (totalRevenue / 100000).toFixed(1) + 'L' : totalRevenue.toLocaleString()}`} gradient="var(--gradient-warning)" />
+          <StatCard icon={BookOpen} label="Total Courses" value={courses.length} gradient="var(--gradient-info)" />
         </div>
 
         {/* Charts Row */}
         <div className="grid lg:grid-cols-3 gap-6">
           <div className="lg:col-span-2 bg-card rounded-xl border border-border p-5">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="font-display font-semibold text-foreground">Revenue Analytics</h2>
-              <span className="badge-success text-xs">₹4.25L this month</span>
-            </div>
-            <ResponsiveContainer width="100%" height={220}>
-              <AreaChart data={revenueData}>
-                <defs>
-                  <linearGradient id="revGrad" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="hsl(221,83%,53%)" stopOpacity={0.3} />
-                    <stop offset="95%" stopColor="hsl(221,83%,53%)" stopOpacity={0} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                <XAxis dataKey="month" tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} />
-                <YAxis tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} tickFormatter={v => `₹${(v / 1000).toFixed(0)}K`} />
-                <Tooltip formatter={(v: number) => [`₹${v.toLocaleString()}`, 'Revenue']} contentStyle={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: '8px' }} />
-                <Area type="monotone" dataKey="revenue" stroke="hsl(221,83%,53%)" strokeWidth={2.5} fill="url(#revGrad)" />
-              </AreaChart>
-            </ResponsiveContainer>
+            <h2 className="font-display font-semibold text-foreground mb-4">Revenue Analytics</h2>
+            {revenueData.length === 0 ? <p className="text-sm text-muted-foreground text-center py-10">No revenue data yet.</p> : (
+              <ResponsiveContainer width="100%" height={220}>
+                <AreaChart data={revenueData}>
+                  <defs>
+                    <linearGradient id="revGrad" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="hsl(221,83%,53%)" stopOpacity={0.3} />
+                      <stop offset="95%" stopColor="hsl(221,83%,53%)" stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                  <XAxis dataKey="month" tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} />
+                  <YAxis tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} tickFormatter={v => `₹${(v / 1000).toFixed(0)}K`} />
+                  <Tooltip formatter={(v: number) => [`₹${v.toLocaleString()}`, 'Revenue']} contentStyle={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: '8px' }} />
+                  <Area type="monotone" dataKey="revenue" stroke="hsl(221,83%,53%)" strokeWidth={2.5} fill="url(#revGrad)" />
+                </AreaChart>
+              </ResponsiveContainer>
+            )}
           </div>
 
           <div className="bg-card rounded-xl border border-border p-5">
             <h2 className="font-display font-semibold text-foreground mb-4">Courses by Category</h2>
-            <ResponsiveContainer width="100%" height={220}>
-              <PieChart>
-                <Pie data={categoryData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={70} innerRadius={40}>
-                  {categoryData.map((_, i) => <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />)}
-                </Pie>
-                <Tooltip contentStyle={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: '8px' }} />
-                <Legend iconSize={8} wrapperStyle={{ fontSize: '11px' }} />
-              </PieChart>
-            </ResponsiveContainer>
+            {categoryData.length === 0 ? <p className="text-sm text-muted-foreground text-center py-10">No courses yet.</p> : (
+              <ResponsiveContainer width="100%" height={220}>
+                <PieChart>
+                  <Pie data={categoryData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={70} innerRadius={40}>
+                    {categoryData.map((_, i) => <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />)}
+                  </Pie>
+                  <Tooltip contentStyle={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: '8px' }} />
+                  <Legend iconSize={8} wrapperStyle={{ fontSize: '11px' }} />
+                </PieChart>
+              </ResponsiveContainer>
+            )}
           </div>
         </div>
 
         {/* Monthly Enrollment */}
-        <div className="bg-card rounded-xl border border-border p-5">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="font-display font-semibold text-foreground">Monthly Enrollments</h2>
-            <div className="flex gap-2">
-              <span className="badge-info">7-month trend</span>
-            </div>
+        {monthlyEnrollmentData.length > 0 && (
+          <div className="bg-card rounded-xl border border-border p-5">
+            <h2 className="font-display font-semibold text-foreground mb-4">Monthly Enrollments</h2>
+            <ResponsiveContainer width="100%" height={200}>
+              <BarChart data={monthlyEnrollmentData} barSize={36}>
+                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                <XAxis dataKey="month" tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} />
+                <YAxis tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} />
+                <Tooltip contentStyle={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: '8px' }} />
+                <Bar dataKey="enrollments" fill="hsl(221,83%,53%)" radius={[4, 4, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
           </div>
-          <ResponsiveContainer width="100%" height={200}>
-            <BarChart data={monthlyEnrollmentData} barSize={36}>
-              <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-              <XAxis dataKey="month" tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} />
-              <YAxis tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} />
-              <Tooltip contentStyle={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: '8px' }} />
-              <Bar dataKey="enrollments" fill="hsl(221,83%,53%)" radius={[4, 4, 0, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
+        )}
 
         {/* User Management */}
         <div className="bg-card rounded-xl border border-border p-5">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-5">
             <h2 className="font-display font-semibold text-foreground">User Management</h2>
-            <div className="flex items-center gap-2">
-              <div className="relative">
-                <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-                <Input placeholder="Search users..." value={userSearch} onChange={e => setUserSearch(e.target.value)} className="pl-9 h-8 w-56 text-sm" />
-              </div>
-              <Button size="sm" variant="outline" className="font-medium">Export</Button>
+            <div className="relative">
+              <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+              <Input placeholder="Search users..." value={userSearch} onChange={e => setUserSearch(e.target.value)} className="pl-9 h-8 w-56 text-sm" />
             </div>
           </div>
           <div className="overflow-x-auto">
@@ -141,42 +193,36 @@ export default function AdminDashboard() {
                   <th className="text-left py-2 text-muted-foreground font-medium">User</th>
                   <th className="text-left py-2 text-muted-foreground font-medium">Email</th>
                   <th className="text-left py-2 text-muted-foreground font-medium">Role</th>
-                  <th className="text-left py-2 text-muted-foreground font-medium">Status</th>
                   <th className="text-left py-2 text-muted-foreground font-medium">Joined</th>
-                  <th className="text-left py-2 text-muted-foreground font-medium">Courses</th>
                   <th className="text-left py-2 text-muted-foreground font-medium">Actions</th>
                 </tr>
               </thead>
               <tbody>
-                {filtered.map(u => (
-                  <tr key={u.id} className="border-b border-border/50 hover:bg-muted/30 transition-colors">
-                    <td className="py-3">
-                      <div className="flex items-center gap-2">
-                        <div className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold text-white" style={{ background: 'var(--gradient-primary)' }}>{u.name.charAt(0)}</div>
-                        <span className="font-medium text-foreground">{u.name}</span>
-                      </div>
-                    </td>
-                    <td className="py-3 text-muted-foreground text-xs">{u.email}</td>
-                    <td className="py-3">
-                      <span className={u.role === 'admin' ? 'badge-info' : u.role === 'teacher' ? 'badge-warning' : 'badge-primary'}>{u.role}</span>
-                    </td>
-                    <td className="py-3">
-                      <span className={u.status === 'active' ? 'badge-success' : 'badge-warning'}>{u.status}</span>
-                    </td>
-                    <td className="py-3 text-muted-foreground text-xs">{new Date(u.joined).toLocaleDateString('en-IN')}</td>
-                    <td className="py-3 text-muted-foreground text-center">{u.courses}</td>
-                    <td className="py-3">
-                      <div className="flex items-center gap-1">
-                        <button className="p-1 rounded hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"><Eye className="w-3.5 h-3.5" /></button>
-                        <button className="p-1 rounded hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"><Edit3 className="w-3.5 h-3.5" /></button>
-                        <button className="p-1 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors">
-                          {u.status === 'active' ? <UserX className="w-3.5 h-3.5" /> : <UserCheck className="w-3.5 h-3.5" />}
-                        </button>
-                        <button className="p-1 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors"><Trash2 className="w-3.5 h-3.5" /></button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
+                {filtered.slice(0, 10).map((u: any) => {
+                  const role = u.user_roles?.[0]?.role || 'student';
+                  return (
+                    <tr key={u.id} className="border-b border-border/50 hover:bg-muted/30 transition-colors">
+                      <td className="py-3">
+                        <div className="flex items-center gap-2">
+                          <div className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold text-white" style={{ background: 'var(--gradient-primary)' }}>{u.name?.charAt(0) || '?'}</div>
+                          <span className="font-medium text-foreground">{u.name}</span>
+                        </div>
+                      </td>
+                      <td className="py-3 text-muted-foreground text-xs">{u.email}</td>
+                      <td className="py-3">
+                        <span className={role === 'admin' ? 'badge-info' : role === 'teacher' ? 'badge-warning' : 'badge-primary'}>{role}</span>
+                      </td>
+                      <td className="py-3 text-muted-foreground text-xs">{u.created_at ? new Date(u.created_at).toLocaleDateString('en-IN') : '-'}</td>
+                      <td className="py-3">
+                        <div className="flex items-center gap-1">
+                          <button className="p-1 rounded hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"><Eye className="w-3.5 h-3.5" /></button>
+                          <button className="p-1 rounded hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"><Edit3 className="w-3.5 h-3.5" /></button>
+                          <button className="p-1 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors"><Trash2 className="w-3.5 h-3.5" /></button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -186,42 +232,35 @@ export default function AdminDashboard() {
         <div className="bg-card rounded-xl border border-border p-5">
           <div className="flex items-center justify-between mb-4">
             <h2 className="font-display font-semibold text-foreground">Course Management</h2>
-            <Button size="sm" style={{ background: 'var(--gradient-primary)' }} className="font-semibold"><Plus className="w-3.5 h-3.5 mr-1" />Add Course</Button>
+            <Button size="sm" onClick={() => navigate('/admin/courses')} variant="outline" className="font-medium">View All</Button>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-border">
                   <th className="text-left py-2 text-muted-foreground font-medium">Course</th>
-                  <th className="text-left py-2 text-muted-foreground font-medium">Instructor</th>
                   <th className="text-left py-2 text-muted-foreground font-medium">Category</th>
-                  <th className="text-left py-2 text-muted-foreground font-medium">Students</th>
                   <th className="text-left py-2 text-muted-foreground font-medium">Price</th>
-                  <th className="text-left py-2 text-muted-foreground font-medium">Rating</th>
                   <th className="text-left py-2 text-muted-foreground font-medium">Status</th>
                   <th className="text-left py-2 text-muted-foreground font-medium">Actions</th>
                 </tr>
               </thead>
               <tbody>
-                {mockCourses.map(c => (
+                {courses.slice(0, 6).map((c: any) => (
                   <tr key={c.id} className="border-b border-border/50 hover:bg-muted/30 transition-colors">
                     <td className="py-3">
                       <div className="flex items-center gap-2">
-                        <img src={c.thumbnail} alt={c.title} className="w-10 h-7 rounded object-cover" />
+                        <img src={c.thumbnail || 'https://images.unsplash.com/photo-1498050108023-c5249f4df085?w=100'} alt={c.title} className="w-10 h-7 rounded object-cover" />
                         <span className="font-medium text-foreground text-xs max-w-[160px] truncate">{c.title}</span>
                       </div>
                     </td>
-                    <td className="py-3 text-muted-foreground text-xs">{c.instructorName}</td>
-                    <td className="py-3 text-xs"><span className="badge-primary">{c.category}</span></td>
-                    <td className="py-3 text-muted-foreground text-xs">{c.students}</td>
-                    <td className="py-3 font-medium text-foreground text-xs">₹{c.price.toLocaleString()}</td>
-                    <td className="py-3 text-xs text-yellow-500">★ {c.rating}</td>
+                    <td className="py-3 text-xs"><span className="badge-primary">{c.category || 'N/A'}</span></td>
+                    <td className="py-3 font-medium text-foreground text-xs">₹{Number(c.price || 0).toLocaleString()}</td>
                     <td className="py-3"><span className={c.status === 'published' ? 'badge-success' : 'badge-warning'} style={{ fontSize: '10px' }}>{c.status}</span></td>
                     <td className="py-3">
                       <div className="flex items-center gap-1">
-                        <button className="p-1 rounded hover:bg-muted text-muted-foreground hover:text-foreground"><Eye className="w-3.5 h-3.5" /></button>
-                        <button className="p-1 rounded hover:bg-muted text-muted-foreground hover:text-foreground"><Edit3 className="w-3.5 h-3.5" /></button>
-                        <button className="p-1 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive"><Trash2 className="w-3.5 h-3.5" /></button>
+                        <button onClick={() => navigate(`/admin/courses/${c.id}`)} className="p-1 rounded hover:bg-muted text-muted-foreground hover:text-foreground"><Eye className="w-3.5 h-3.5" /></button>
+                        <button onClick={() => handleDeleteCourse(c.id)} className="p-1 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive"><Trash2 className="w-3.5 h-3.5" /></button>
                       </div>
                     </td>
                   </tr>
@@ -231,12 +270,12 @@ export default function AdminDashboard() {
           </div>
         </div>
 
-        {/* Security + Platform Health */}
+        {/* Platform Health */}
         <div className="grid sm:grid-cols-3 gap-4">
           {[
-            { icon: ShieldCheck, label: 'Security Events', value: '0', sub: 'No threats detected', gradient: 'var(--gradient-success)' },
-            { icon: TrendingUp, label: 'Platform Uptime', value: '99.9%', sub: 'Last 30 days', gradient: 'var(--gradient-info)' },
-            { icon: BarChart3, label: 'API Requests', value: '48.2K', sub: 'Today', gradient: 'var(--gradient-purple)' },
+            { icon: ShieldCheck, label: 'Security', value: 'Secure', sub: 'All systems operational', gradient: 'var(--gradient-success)' },
+            { icon: TrendingUp, label: 'Total Enrollments', value: enrollments.length.toString(), sub: 'All time', gradient: 'var(--gradient-info)' },
+            { icon: BarChart3, label: 'Total Payments', value: payments.length.toString(), sub: 'Transactions', gradient: 'var(--gradient-purple)' },
           ].map(({ icon: Icon, label, value, sub, gradient }) => (
             <div key={label} className="stat-card flex items-start gap-4">
               <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: gradient }}>
