@@ -77,6 +77,7 @@ function AppRoutes() {
       <Route path="/student/attendance" element={<ProtectedRoute role="student"><StudentAttendance /></ProtectedRoute>} />
       <Route path="/student/grades" element={<ProtectedRoute role="student"><StudentGrades /></ProtectedRoute>} />
       <Route path="/student/payments" element={<ProtectedRoute role="student"><Payments /></ProtectedRoute>} />
+      <Route path="/student/payment-success" element={<ProtectedRoute role="student"><PaymentSuccess /></ProtectedRoute>} />
       <Route path="/student/profile" element={<ProtectedRoute role="student"><ProfilePage /></ProtectedRoute>} />
       <Route path="/student/notifications" element={<ProtectedRoute role="student"><Notifications /></ProtectedRoute>} />
 
