@@ -3,8 +3,9 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { CreditCard, CheckCircle, Clock, Download, BookOpen, Loader2 } from 'lucide-react';
+import { CreditCard, CheckCircle, Clock, Download, BookOpen, Loader2, Crown, Settings } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { toast } from '@/components/ui/use-toast';
 
 export default function Payments() {
   const { user } = useAuth();
