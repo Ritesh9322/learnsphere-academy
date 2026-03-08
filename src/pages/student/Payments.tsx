@@ -3,14 +3,18 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { CreditCard, CheckCircle, Clock, Download, BookOpen, Loader2 } from 'lucide-react';
+import { CreditCard, CheckCircle, Clock, Download, BookOpen, Loader2, Crown, Settings } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { toast } from '@/components/ui/use-toast';
 
 export default function Payments() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [payments, setPayments] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isSubscribed, setIsSubscribed] = useState(false);
+  const [subscriptionEnd, setSubscriptionEnd] = useState<string | null>(null);
+  const [portalLoading, setPortalLoading] = useState(false);
 
   useEffect(() => {
     if (!user) return;
@@ -18,9 +22,31 @@ export default function Payments() {
       setPayments(data || []);
       setLoading(false);
     });
+    // Check subscription status
+    supabase.functions.invoke('check-subscription').then(({ data }) => {
+      if (data?.subscribed) {
+        setIsSubscribed(true);
+        setSubscriptionEnd(data.subscription_end);
+      }
+    });
   }, [user]);
 
   const total = payments.filter(p => p.status === 'paid').reduce((s, p) => s + Number(p.amount), 0);
+
+  const handleManageSubscription = async () => {
+    setPortalLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('customer-portal');
+      if (error) throw error;
+      if (data?.url) {
+        window.open(data.url, '_blank');
+      }
+    } catch (err: any) {
+      toast({ title: 'Error', description: err.message || 'Could not open subscription portal', variant: 'destructive' });
+    } finally {
+      setPortalLoading(false);
+    }
+  };
 
   const downloadInvoice = (payment: any) => {
     const invoiceContent = `
@@ -52,6 +78,27 @@ Status: ${payment.status}
             <p className="text-muted-foreground text-sm mt-1">Track your course purchases and transactions</p>
           </div>
         </div>
+
+        {/* Subscription Status */}
+        {isSubscribed && (
+          <div className="bg-card rounded-xl border border-primary/30 p-5 flex items-center justify-between" style={{ background: 'linear-gradient(135deg, hsl(var(--primary)/0.08), hsl(var(--card)))' }}>
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-primary/10">
+                <Crown className="w-5 h-5 text-primary" />
+              </div>
+              <div>
+                <div className="font-display font-semibold text-foreground">All Access Subscription</div>
+                <div className="text-xs text-muted-foreground">
+                  {subscriptionEnd ? `Renews on ${new Date(subscriptionEnd).toLocaleDateString('en-IN')}` : 'Active'}
+                </div>
+              </div>
+            </div>
+            <Button variant="outline" size="sm" onClick={handleManageSubscription} disabled={portalLoading}>
+              {portalLoading ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : <Settings className="w-4 h-4 mr-1" />}
+              Manage
+            </Button>
+          </div>
+        )}
 
         {/* Summary */}
         <div className="grid grid-cols-3 gap-4">
