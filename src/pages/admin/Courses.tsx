@@ -1,13 +1,38 @@
 import DashboardLayout from '@/components/layout/DashboardLayout';
-import { mockCourses } from '@/data/mockData';
-import { BookOpen, Plus, Search, Eye, Edit3, Trash2, Star, Users, Clock } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
+import { BookOpen, Search, Eye, Edit3, Trash2, Clock, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { useState } from 'react';
+import { toast } from '@/components/ui/use-toast';
+import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 
 export default function AdminCourses() {
+  const navigate = useNavigate();
   const [search, setSearch] = useState('');
-  const filtered = mockCourses.filter(c => c.title.toLowerCase().includes(search.toLowerCase()));
+  const [courses, setCourses] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const load = async () => {
+      setLoading(true);
+      const { data } = await supabase.from('courses').select('*, profiles:instructor_id(name)').order('created_at', { ascending: false });
+      setCourses(data || []);
+      setLoading(false);
+    };
+    load();
+  }, []);
+
+  const handleDelete = async (id: string) => {
+    if (!confirm('Delete this course?')) return;
+    await supabase.from('courses').delete().eq('id', id);
+    setCourses(prev => prev.filter(c => c.id !== id));
+    toast({ title: 'Course deleted' });
+  };
+
+  const filtered = courses.filter(c => c.title.toLowerCase().includes(search.toLowerCase()));
+
+  if (loading) return <DashboardLayout><div className="flex items-center justify-center py-20"><Loader2 className="w-6 h-6 animate-spin text-primary" /></div></DashboardLayout>;
 
   return (
     <DashboardLayout>
@@ -17,7 +42,6 @@ export default function AdminCourses() {
             <h1 className="text-2xl font-display font-bold text-foreground">Course Management</h1>
             <p className="text-muted-foreground text-sm mt-1">Manage all courses on the platform</p>
           </div>
-          <Button style={{ background: 'var(--gradient-primary)' }} className="font-semibold"><Plus className="w-4 h-4 mr-2" />Add Course</Button>
         </div>
 
         <div className="relative max-w-sm">
@@ -31,38 +55,34 @@ export default function AdminCourses() {
               <th className="text-left py-3 px-5 text-muted-foreground font-medium">Course</th>
               <th className="text-left py-3 px-5 text-muted-foreground font-medium">Instructor</th>
               <th className="text-left py-3 px-5 text-muted-foreground font-medium">Category</th>
-              <th className="text-left py-3 px-5 text-muted-foreground font-medium">Students</th>
               <th className="text-left py-3 px-5 text-muted-foreground font-medium">Price</th>
-              <th className="text-left py-3 px-5 text-muted-foreground font-medium">Rating</th>
               <th className="text-left py-3 px-5 text-muted-foreground font-medium">Status</th>
               <th className="text-left py-3 px-5 text-muted-foreground font-medium">Actions</th>
             </tr></thead>
             <tbody>
-              {filtered.map(c => (
+              {filtered.map((c: any) => (
                 <tr key={c.id} className="border-b border-border/50 hover:bg-muted/30 transition-colors">
                   <td className="py-3 px-5">
                     <div className="flex items-center gap-2">
-                      <img src={c.thumbnail} alt={c.title} className="w-10 h-7 rounded object-cover" />
+                      <img src={c.thumbnail || 'https://images.unsplash.com/photo-1498050108023-c5249f4df085?w=100'} alt={c.title} className="w-10 h-7 rounded object-cover" />
                       <span className="font-medium text-foreground text-xs max-w-[180px] truncate">{c.title}</span>
                     </div>
                   </td>
-                  <td className="py-3 px-5 text-muted-foreground text-xs">{c.instructorName}</td>
-                  <td className="py-3 px-5"><span className="badge-info text-[10px]">{c.category}</span></td>
-                  <td className="py-3 px-5 text-muted-foreground text-xs">{c.students}</td>
-                  <td className="py-3 px-5 font-medium text-foreground text-xs">₹{c.price.toLocaleString()}</td>
-                  <td className="py-3 px-5 text-yellow-500 text-xs">★ {c.rating}</td>
+                  <td className="py-3 px-5 text-muted-foreground text-xs">{c.profiles?.name || 'Unknown'}</td>
+                  <td className="py-3 px-5"><span className="badge-info text-[10px]">{c.category || 'N/A'}</span></td>
+                  <td className="py-3 px-5 font-medium text-foreground text-xs">₹{Number(c.price || 0).toLocaleString()}</td>
                   <td className="py-3 px-5"><span className={c.status === 'published' ? 'badge-success' : 'badge-warning'} style={{ fontSize: '10px' }}>{c.status}</span></td>
                   <td className="py-3 px-5">
                     <div className="flex gap-1">
-                      <button className="p-1 rounded hover:bg-muted text-muted-foreground hover:text-foreground"><Eye className="w-3.5 h-3.5" /></button>
-                      <button className="p-1 rounded hover:bg-muted text-muted-foreground hover:text-foreground"><Edit3 className="w-3.5 h-3.5" /></button>
-                      <button className="p-1 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive"><Trash2 className="w-3.5 h-3.5" /></button>
+                      <button onClick={() => navigate(`/admin/courses/${c.id}`)} className="p-1 rounded hover:bg-muted text-muted-foreground hover:text-foreground"><Eye className="w-3.5 h-3.5" /></button>
+                      <button onClick={() => handleDelete(c.id)} className="p-1 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive"><Trash2 className="w-3.5 h-3.5" /></button>
                     </div>
                   </td>
                 </tr>
               ))}
             </tbody>
           </table>
+          {filtered.length === 0 && <p className="text-sm text-muted-foreground text-center py-8">No courses found.</p>}
         </div>
       </div>
     </DashboardLayout>
