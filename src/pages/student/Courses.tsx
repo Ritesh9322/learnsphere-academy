@@ -3,10 +3,10 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, BookOpen, Clock, Play, ChevronRight, Loader2, CreditCard, CheckCircle2, IndianRupee, ShieldCheck } from 'lucide-react';
+import { Search, BookOpen, Clock, Play, ChevronRight, Loader2, CreditCard, CheckCircle2, ShieldCheck, Crown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
+import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { toast } from '@/components/ui/use-toast';
 
 interface CourseRow {
@@ -26,7 +26,8 @@ export default function CourseCatalog() {
   const [filter, setFilter] = useState('All');
   const [selectedCourse, setSelectedCourse] = useState<CourseRow | null>(null);
   const [purchasing, setPurchasing] = useState(false);
-  const [purchaseSuccess, setPurchaseSuccess] = useState(false);
+  const [subscribing, setSubscribing] = useState(false);
+  const [isSubscribed, setIsSubscribed] = useState(false);
   const [instructorNames, setInstructorNames] = useState<Record<string, string>>({});
 
   useEffect(() => {
@@ -48,6 +49,13 @@ export default function CourseCatalog() {
         const { data: profiles } = await supabase.from('profiles').select('user_id, name').in('user_id', instrIds as string[]);
         setInstructorNames(Object.fromEntries((profiles || []).map(p => [p.user_id, p.name])));
       }
+
+      // Check subscription status
+      try {
+        const { data: subData } = await supabase.functions.invoke('check-subscription');
+        if (subData?.subscribed) setIsSubscribed(true);
+      } catch { /* ignore */ }
+
       setLoading(false);
     };
     load();
@@ -60,46 +68,66 @@ export default function CourseCatalog() {
   );
 
   const handleCourseClick = (course: CourseRow) => {
-    if (enrolledIds.includes(course.id)) {
+    if (enrolledIds.includes(course.id) || isSubscribed) {
       navigate(`/student/courses/${course.id}`);
     } else {
       setSelectedCourse(course);
-      setPurchaseSuccess(false);
     }
   };
 
-  const handlePurchase = async () => {
-    if (!user || !selectedCourse) return;
+  const handleStripeCheckout = async () => {
+    if (!selectedCourse) return;
     setPurchasing(true);
-
     try {
-      // Create payment record
-      const { error: payErr } = await supabase.from('payments').insert({
-        student_id: user.id,
-        course_id: selectedCourse.id,
-        amount: selectedCourse.price || 0,
-        status: 'completed',
-        payment_id: `PAY-${Date.now()}`,
+      const { data, error } = await supabase.functions.invoke('create-course-checkout', {
+        body: { courseId: selectedCourse.id },
       });
-      if (payErr) throw payErr;
+      if (error) throw error;
+      if (data?.url) {
+        window.location.href = data.url;
+      } else {
+        throw new Error('No checkout URL returned');
+      }
+    } catch (err: any) {
+      toast({ title: 'Checkout failed', description: err.message, variant: 'destructive' });
+      setPurchasing(false);
+    }
+  };
 
-      // Create enrollment
-      const { error: enrollErr } = await supabase.from('enrollments').insert({
-        student_id: user.id,
-        course_id: selectedCourse.id,
-        progress: 0,
+  const handleFreeEnroll = async () => {
+    if (!selectedCourse || !user) return;
+    setPurchasing(true);
+    try {
+      await supabase.from('payments').insert({
+        student_id: user.id, course_id: selectedCourse.id,
+        amount: 0, status: 'completed', payment_id: `FREE-${Date.now()}`,
       });
-      if (enrollErr) throw enrollErr;
-
-      // Update local state
+      await supabase.from('enrollments').insert({
+        student_id: user.id, course_id: selectedCourse.id, progress: 0,
+      });
       setEnrolledIds(prev => [...prev, selectedCourse.id]);
       setEnrollmentProgress(prev => ({ ...prev, [selectedCourse.id]: 0 }));
-      setPurchaseSuccess(true);
-      toast({ title: 'Course purchased successfully!', description: `You are now enrolled in "${selectedCourse.title}"` });
+      toast({ title: 'Enrolled!', description: `You now have access to "${selectedCourse.title}"` });
+      setSelectedCourse(null);
+      navigate(`/student/courses/${selectedCourse.id}`);
     } catch (err: any) {
-      toast({ title: 'Purchase failed', description: err.message, variant: 'destructive' });
+      toast({ title: 'Enrollment failed', description: err.message, variant: 'destructive' });
     } finally {
       setPurchasing(false);
+    }
+  };
+
+  const handleSubscribe = async () => {
+    setSubscribing(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('create-subscription');
+      if (error) throw error;
+      if (data?.url) {
+        window.location.href = data.url;
+      }
+    } catch (err: any) {
+      toast({ title: 'Subscription failed', description: err.message, variant: 'destructive' });
+      setSubscribing(false);
     }
   };
 
@@ -108,9 +136,22 @@ export default function CourseCatalog() {
   return (
     <DashboardLayout>
       <div className="max-w-7xl mx-auto space-y-6 animate-fade-in">
-        <div>
-          <h1 className="text-2xl font-display font-bold text-foreground">Course Catalog</h1>
-          <p className="text-muted-foreground text-sm mt-1">Explore and enroll in courses that match your goals</p>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <h1 className="text-2xl font-display font-bold text-foreground">Course Catalog</h1>
+            <p className="text-muted-foreground text-sm mt-1">Explore and enroll in courses that match your goals</p>
+          </div>
+          {!isSubscribed && (
+            <Button onClick={handleSubscribe} disabled={subscribing} className="font-semibold text-sm" style={{ background: 'linear-gradient(135deg, hsl(var(--primary)), hsl(280, 80%, 55%))' }}>
+              {subscribing ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Crown className="w-4 h-4 mr-2" />}
+              All Access — ₹999/mo
+            </Button>
+          )}
+          {isSubscribed && (
+            <div className="flex items-center gap-2 text-sm font-semibold px-3 py-1.5 rounded-lg border border-border" style={{ color: 'hsl(var(--primary))' }}>
+              <Crown className="w-4 h-4" />All Access Active
+            </div>
+          )}
         </div>
 
         <div className="flex flex-col sm:flex-row gap-3">
@@ -131,7 +172,7 @@ export default function CourseCatalog() {
 
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-5">
           {filtered.map(course => {
-            const enrolled = enrolledIds.includes(course.id);
+            const enrolled = enrolledIds.includes(course.id) || isSubscribed;
             const progress = enrollmentProgress[course.id] || 0;
             return (
               <div key={course.id} className="bg-card rounded-xl border border-border overflow-hidden hover:shadow-lg transition-all duration-300 group flex flex-col cursor-pointer" onClick={() => handleCourseClick(course)}>
@@ -142,7 +183,8 @@ export default function CourseCatalog() {
                       {course.level}
                     </span>
                   </div>
-                  {enrolled && <div className="absolute top-3 right-3 badge-success text-xs">Enrolled</div>}
+                  {enrolledIds.includes(course.id) && <div className="absolute top-3 right-3 badge-success text-xs">Enrolled</div>}
+                  {isSubscribed && !enrolledIds.includes(course.id) && <div className="absolute top-3 right-3 text-xs font-semibold px-2 py-1 rounded-md text-white" style={{ background: 'linear-gradient(135deg, hsl(var(--primary)), hsl(280, 80%, 55%))' }}>All Access</div>}
                 </div>
                 <div className="p-5 flex flex-col flex-1">
                   {course.category && <span className="badge-primary text-[10px] mb-2 self-start">{course.category}</span>}
@@ -154,7 +196,7 @@ export default function CourseCatalog() {
                   <div className="flex items-center gap-3 text-xs text-muted-foreground mb-4">
                     {course.duration && <span className="flex items-center gap-1"><Clock className="w-3 h-3" />{course.duration}</span>}
                   </div>
-                  {enrolled && (
+                  {enrolledIds.includes(course.id) && (
                     <div className="mb-3">
                       <div className="flex justify-between text-xs mb-1">
                         <span className="text-muted-foreground">Progress</span>
@@ -184,29 +226,11 @@ export default function CourseCatalog() {
           </div>
         )}
 
-        {/* Purchase / Enrollment Dialog */}
-        <Dialog open={!!selectedCourse} onOpenChange={(open) => { if (!open) { setSelectedCourse(null); setPurchaseSuccess(false); } }}>
+        {/* Purchase Dialog */}
+        <Dialog open={!!selectedCourse} onOpenChange={(open) => { if (!open) setSelectedCourse(null); }}>
           <DialogContent className="max-w-md p-0 overflow-hidden">
-            {purchaseSuccess ? (
-              <div className="p-8 text-center space-y-4">
-                <div className="w-16 h-16 rounded-full mx-auto flex items-center justify-center" style={{ background: 'var(--gradient-success)' }}>
-                  <CheckCircle2 className="w-8 h-8 text-white" />
-                </div>
-                <div>
-                  <h3 className="text-xl font-display font-bold text-foreground">Enrollment Successful!</h3>
-                  <p className="text-sm text-muted-foreground mt-1">You now have full access to "{selectedCourse?.title}"</p>
-                </div>
-                <Button
-                  onClick={() => { setSelectedCourse(null); setPurchaseSuccess(false); navigate(`/student/courses/${selectedCourse?.id}`); }}
-                  className="w-full font-semibold"
-                  style={{ background: 'var(--gradient-primary)' }}
-                >
-                  <Play className="w-4 h-4 mr-2" />Start Learning
-                </Button>
-              </div>
-            ) : selectedCourse && (
+            {selectedCourse && (
               <>
-                {/* Course preview header */}
                 <div className="relative h-40 overflow-hidden">
                   <img src={selectedCourse.thumbnail || 'https://images.unsplash.com/photo-1498050108023-c5249f4df085?w=600'} alt={selectedCourse.title} className="w-full h-full object-cover" />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent" />
@@ -224,7 +248,6 @@ export default function CourseCatalog() {
                     <p className="text-sm text-muted-foreground line-clamp-2">{selectedCourse.description}</p>
                   )}
 
-                  {/* Order summary */}
                   <div className="bg-muted/50 rounded-xl p-4 space-y-3">
                     <h4 className="text-sm font-semibold text-foreground">Order Summary</h4>
                     <div className="flex justify-between text-sm">
@@ -241,9 +264,8 @@ export default function CourseCatalog() {
                     </div>
                   </div>
 
-                  {/* Trust indicators */}
                   <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                    <span className="flex items-center gap-1"><ShieldCheck className="w-3.5 h-3.5" />Secure payment</span>
+                    <span className="flex items-center gap-1"><ShieldCheck className="w-3.5 h-3.5" />Secure Stripe payment</span>
                     <span className="flex items-center gap-1"><BookOpen className="w-3.5 h-3.5" />Lifetime access</span>
                   </div>
 
@@ -252,7 +274,7 @@ export default function CourseCatalog() {
                       Cancel
                     </Button>
                     <Button
-                      onClick={handlePurchase}
+                      onClick={(selectedCourse.price || 0) === 0 ? handleFreeEnroll : handleStripeCheckout}
                       disabled={purchasing}
                       className="flex-1 font-semibold"
                       style={{ background: 'var(--gradient-primary)' }}
@@ -262,7 +284,7 @@ export default function CourseCatalog() {
                       ) : (selectedCourse.price || 0) === 0 ? (
                         <><CheckCircle2 className="w-4 h-4 mr-2" />Enroll Free</>
                       ) : (
-                        <><CreditCard className="w-4 h-4 mr-2" />Pay ₹{(selectedCourse.price || 0).toLocaleString()}</>
+                        <><CreditCard className="w-4 h-4 mr-2" />Pay with Stripe</>
                       )}
                     </Button>
                   </div>

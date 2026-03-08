@@ -25,6 +25,7 @@ import StudentAttendance from "./pages/student/Attendance";
 import StudentGrades from "./pages/student/Grades";
 import Payments from "./pages/student/Payments";
 import QuizTake from "./pages/student/QuizTake";
+import PaymentSuccess from "./pages/student/PaymentSuccess";
 
 // Teacher pages
 import TeacherDashboard from "./pages/teacher/Dashboard";
@@ -76,6 +77,7 @@ function AppRoutes() {
       <Route path="/student/attendance" element={<ProtectedRoute role="student"><StudentAttendance /></ProtectedRoute>} />
       <Route path="/student/grades" element={<ProtectedRoute role="student"><StudentGrades /></ProtectedRoute>} />
       <Route path="/student/payments" element={<ProtectedRoute role="student"><Payments /></ProtectedRoute>} />
+      <Route path="/student/payment-success" element={<ProtectedRoute role="student"><PaymentSuccess /></ProtectedRoute>} />
       <Route path="/student/profile" element={<ProtectedRoute role="student"><ProfilePage /></ProtectedRoute>} />
       <Route path="/student/notifications" element={<ProtectedRoute role="student"><Notifications /></ProtectedRoute>} />
 
