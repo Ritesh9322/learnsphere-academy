@@ -12,12 +12,22 @@ export default function Payments() {
   const navigate = useNavigate();
   const [payments, setPayments] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isSubscribed, setIsSubscribed] = useState(false);
+  const [subscriptionEnd, setSubscriptionEnd] = useState<string | null>(null);
+  const [portalLoading, setPortalLoading] = useState(false);
 
   useEffect(() => {
     if (!user) return;
     supabase.from('payments').select('*, courses(title)').eq('student_id', user.id).order('paid_at', { ascending: false }).then(({ data }) => {
       setPayments(data || []);
       setLoading(false);
+    });
+    // Check subscription status
+    supabase.functions.invoke('check-subscription').then(({ data }) => {
+      if (data?.subscribed) {
+        setIsSubscribed(true);
+        setSubscriptionEnd(data.subscription_end);
+      }
     });
   }, [user]);
 
