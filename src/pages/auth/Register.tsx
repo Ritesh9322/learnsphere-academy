@@ -28,7 +28,7 @@ export default function Register() {
     setLoading(true);
     try {
       await register(form.name, form.email, form.password, form.role);
-      toast({ title: 'Account created!', description: 'Welcome to LMS Academy.' });
+      toast({ title: 'Account created!', description: 'Welcome to OneAcademy.' });
       navigate(`/${form.role}`);
     } catch (err: any) {
       toast({ title: 'Registration failed', description: err.message, variant: 'destructive' });
@@ -67,7 +67,7 @@ export default function Register() {
             <div className="w-12 h-12 rounded-xl flex items-center justify-center" style={{ background: 'var(--gradient-primary)' }}>
               <BookOpen className="w-6 h-6 text-white" />
             </div>
-            <span className="text-2xl font-display font-bold">LMS Academy</span>
+            <span className="text-2xl font-display font-bold">OneAcademy</span>
           </div>
           <h2 className="text-4xl font-display font-bold mb-4">Start Learning<br /><span className="text-blue-300">Today for Free</span></h2>
           <p className="text-white/70 mb-10">Join our community of 10,000+ learners and take your skills to the next level.</p>
@@ -88,7 +88,7 @@ export default function Register() {
             <div className="w-9 h-9 rounded-lg flex items-center justify-center" style={{ background: 'var(--gradient-primary)' }}>
               <BookOpen className="w-5 h-5 text-white" />
             </div>
-            <span className="text-xl font-display font-bold">LMS Academy</span>
+            <span className="text-xl font-display font-bold">OneAcademy</span>
           </div>
           <div className="mb-6">
             <h1 className="text-3xl font-display font-bold text-foreground">Create your account</h1>

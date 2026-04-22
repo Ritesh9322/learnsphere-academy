@@ -110,7 +110,7 @@ export default function Login() {
             <div className="w-12 h-12 rounded-xl flex items-center justify-center" style={{ background: 'var(--gradient-primary)' }}>
               <BookOpen className="w-6 h-6 text-white" />
             </div>
-            <span className="text-2xl font-display font-bold">LMS Academy</span>
+            <span className="text-2xl font-display font-bold">OneAcademy</span>
           </div>
           <h2 className="text-4xl font-display font-bold mb-4 leading-tight">
             Transform Your<br /><span className="text-blue-300">Learning Journey</span>
@@ -136,7 +136,7 @@ export default function Login() {
             <div className="w-9 h-9 rounded-lg flex items-center justify-center" style={{ background: 'var(--gradient-primary)' }}>
               <BookOpen className="w-5 h-5 text-white" />
             </div>
-            <span className="text-xl font-display font-bold text-foreground">LMS Academy</span>
+            <span className="text-xl font-display font-bold text-foreground">OneAcademy</span>
           </div>
 
           <div className="mb-6">

@@ -34,14 +34,14 @@ export default function AdminSettings() {
           <div className="bg-card rounded-xl border border-border p-6 space-y-5">
             <h2 className="font-display font-semibold text-foreground">General Settings</h2>
             <div className="grid sm:grid-cols-2 gap-4">
-              <div><Label className="text-sm font-medium">Platform Name</Label><Input defaultValue="LMS Academy" className="mt-1.5" /></div>
-              <div><Label className="text-sm font-medium">Support Email</Label><Input defaultValue="support@lmsacademy.com" className="mt-1.5" /></div>
+              <div><Label className="text-sm font-medium">Platform Name</Label><Input defaultValue="OneAcademy" className="mt-1.5" /></div>
+              <div><Label className="text-sm font-medium">Support Email</Label><Input defaultValue="support@oneacademy.com" className="mt-1.5" /></div>
               <div><Label className="text-sm font-medium">Contact Phone</Label><Input defaultValue="+91 98765 43210" className="mt-1.5" /></div>
               <div><Label className="text-sm font-medium">Currency</Label><Input defaultValue="INR (₹)" className="mt-1.5" /></div>
             </div>
             <div>
               <Label className="text-sm font-medium">Platform Description</Label>
-              <textarea defaultValue="LMS Academy is a world-class learning management platform for coaching institutes." rows={3} className="mt-1.5 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground resize-none focus:outline-none focus:ring-2 focus:ring-ring" />
+              <textarea defaultValue="OneAcademy is a world-class learning management platform for coaching institutes." rows={3} className="mt-1.5 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground resize-none focus:outline-none focus:ring-2 focus:ring-ring" />
             </div>
 
             <div className="border-t border-border pt-5">
