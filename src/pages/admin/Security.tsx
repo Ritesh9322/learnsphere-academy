@@ -4,7 +4,7 @@ import { ShieldCheck, Activity, AlertTriangle, CheckCircle2, Lock, Eye, Globe } 
 const securityEvents = [
   { id: 1, type: 'login', message: 'Successful admin login', ip: '192.168.1.1', time: '5 min ago', severity: 'info' },
   { id: 2, type: 'password', message: 'Password changed for user neha@email.com', ip: '10.0.0.45', time: '1h ago', severity: 'info' },
-  { id: 3, type: 'blocked', message: 'Failed login attempt (3 tries) for admin@lmsacademy.com', ip: '45.33.21.8', time: '3h ago', severity: 'warning' },
+  { id: 3, type: 'blocked', message: 'Failed login attempt (3 tries) for admin@oneacademy.com', ip: '45.33.21.8', time: '3h ago', severity: 'warning' },
   { id: 4, type: 'access', message: 'Unauthorized access attempt to /admin/settings', ip: '78.12.34.56', time: '6h ago', severity: 'error' },
   { id: 5, type: 'login', message: 'New teacher registration: sneha@email.com', ip: '172.16.0.12', time: '1d ago', severity: 'info' },
 ];

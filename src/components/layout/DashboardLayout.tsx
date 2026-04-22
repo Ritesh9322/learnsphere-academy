@@ -68,7 +68,7 @@ function SidebarContent({ collapsed, onClose }: { collapsed: boolean; onClose?: 
         </div>
         {!collapsed && (
           <div className="flex-1 min-w-0">
-            <div className="text-white font-display font-bold text-base leading-tight">LMS Academy</div>
+            <div className="text-white font-display font-bold text-base leading-tight">OneAcademy</div>
             <div className="text-xs" style={{ color: 'hsl(var(--sidebar-foreground) / 0.5)' }}>Learning Platform</div>
           </div>
         )}

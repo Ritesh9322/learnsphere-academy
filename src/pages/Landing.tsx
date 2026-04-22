@@ -58,7 +58,7 @@ export default function Landing() {
             <div className="w-9 h-9 rounded-lg flex items-center justify-center" style={{ background: 'var(--gradient-primary)' }}>
               <GraduationCap className="w-5 h-5 text-white" />
             </div>
-            <span className="font-display font-bold text-lg text-foreground">LMS Academy</span>
+            <span className="font-display font-bold text-lg text-foreground">OneAcademy</span>
           </div>
           <div className="hidden md:flex items-center gap-8">
             {['Courses', 'Features', 'Testimonials', 'Pricing'].map(item => (
@@ -279,7 +279,7 @@ export default function Landing() {
       <section className="py-20 hero-bg">
         <div className="max-w-4xl mx-auto px-6 text-center">
           <h2 className="text-4xl font-display font-bold text-white mb-4">Ready to Start Your Journey?</h2>
-          <p className="text-white/70 text-lg mb-8">Join thousands of learners who have already transformed their careers with LMS Academy.</p>
+          <p className="text-white/70 text-lg mb-8">Join thousands of learners who have already transformed their careers with OneAcademy.</p>
           <div className="flex flex-wrap items-center justify-center gap-4">
             <Link to="/register">
               <Button size="lg" className="h-12 px-8 font-semibold bg-white text-primary hover:bg-white/90">
@@ -304,7 +304,7 @@ export default function Landing() {
                 <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: 'var(--gradient-primary)' }}>
                   <GraduationCap className="w-4 h-4 text-white" />
                 </div>
-                <span className="font-display font-bold text-white">LMS Academy</span>
+                <span className="font-display font-bold text-white">OneAcademy</span>
               </div>
               <p className="text-white/50 text-sm">India's leading online coaching platform for technology professionals.</p>
             </div>
@@ -318,7 +318,7 @@ export default function Landing() {
             ))}
           </div>
           <div className="border-t border-white/10 pt-6 text-center text-white/40 text-sm">
-            © 2025 LMS Academy. All rights reserved.
+            © 2025 OneAcademy. All rights reserved.
           </div>
         </div>
       </footer>
